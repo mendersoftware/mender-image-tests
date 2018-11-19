@@ -105,7 +105,11 @@ class TestPartitionImage:
         data_part_size = int(bitbake_variables['MENDER_DATA_PART_SIZE_MB']) * 1024 * 1024
 
         if "mender-uboot" in bitbake_variables['DISTRO_FEATURES']:
-            uboot_env_size = os.stat(os.path.join(bitbake_variables["DEPLOY_DIR_IMAGE"], "uboot.env")).st_size
+            try:
+                uboot_env_size = os.stat(os.path.join(bitbake_variables["DEPLOY_DIR_IMAGE"], "uboot.env")).st_size
+            except OSError as e:
+                uboot_env_size = alignment * 2
+
             # Uboot environment should be aligned.
             assert(uboot_env_size % alignment == 0)
         else:
