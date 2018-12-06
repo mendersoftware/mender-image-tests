@@ -46,6 +46,29 @@ def extract_partition(img, number):
                            "skip=%d" % start, "count=%d" % (end - start)])
 
 
+def print_partition_table(disk_image):
+        fdisk = subprocess.Popen(["fdisk", "-l", "-o", "start,end", disk_image], stdout=subprocess.PIPE)
+        payload = False
+        starts = []
+        ends = []
+        for line in fdisk.stdout:
+            line = line.strip()
+            if payload:
+                match = re.match("^\s*([0-9]+)\s+([0-9]+)\s*$", line)
+                assert(match is not None)
+                starts.append(int(match.group(1)) * 512)
+                # +1 because end position is inclusive.
+                ends.append((int(match.group(2)) + 1) * 512)
+            elif re.match(".*start.*end.*", line, re.IGNORECASE) is not None:
+                # fdisk precedes the output with lots of uninteresting stuff,
+                # this gets us to the meat (/me wishes for a "machine output"
+                # mode).
+                payload = True
+
+        fdisk.wait()
+        return starts, ends
+
+
 @pytest.mark.only_with_image('sdimg', 'uefiimg')
 @pytest.mark.min_mender_version("1.0.0")
 class TestPartitionImage:
@@ -78,25 +101,8 @@ class TestPartitionImage:
         """Test that partitions inside the img are aligned correctly, and
         correct sizes."""
 
-        fdisk = subprocess.Popen(["fdisk", "-l", "-o", "start,end", latest_part_image], stdout=subprocess.PIPE)
-        payload = False
-        parts_start = []
-        parts_end = []
-        for line in fdisk.stdout:
-            line = line.strip()
-            if payload:
-                match = re.match("^\s*([0-9]+)\s+([0-9]+)\s*$", line)
-                assert(match is not None)
-                parts_start.append(int(match.group(1)) * 512)
-                # +1 because end position is inclusive.
-                parts_end.append((int(match.group(2)) + 1) * 512)
-            elif re.match(".*start.*end.*", line, re.IGNORECASE) is not None:
-                # fdisk precedes the output with lots of uninteresting stuff,
-                # this gets us to the meat (/me wishes for a "machine output"
-                # mode).
-                payload = True
-
-        fdisk.wait()
+        parts_start, parts_end = print_partition_table(latest_part_image)
+        assert(len(parts_start) == len(parts_end))
 
         alignment = int(bitbake_variables['MENDER_PARTITION_ALIGNMENT'])
         total_size = int(bitbake_variables['MENDER_STORAGE_TOTAL_SIZE_MB']) * 1024 * 1024
@@ -124,15 +130,32 @@ class TestPartitionImage:
         assert(parts_start[2] == parts_end[1])
         assert(parts_start[3] == parts_end[2])
 
+        # For both data and swap partitions a default offset is added.
+        # Offset value is equal to alignment.
+        if len(parts_start) > 4:
+            assert(parts_start[4] == parts_start[3] + alignment)
+
+        if len(parts_start) > 5:
+            assert(parts_start[5] == parts_end[4] + alignment)
+
         # Partitions should extend for their size rounded up to alignment.
         # No set size for Rootfs partitions, so cannot check them.
         # Boot partition.
         assert(parts_end[0] == parts_start[0] + align_up(boot_part_size, alignment))
         # Data partition.
-        assert(parts_end[3] == parts_start[3] + align_up(data_part_size, alignment))
+        if len(parts_start) > 4:
+            data_part_index = 4
+        else:
+            data_part_index = 3
+
+        assert(parts_end[data_part_index] == parts_start[data_part_index] + align_up(data_part_size, alignment))
 
         # End of the last partition can be smaller than total image size, but
-        # not by more than the calculated overhead..
+        # not by more than the calculated overhead.
+        #
+        # For some QEMU x86_64 images Extended partition is created as the fourth one.
+        # As its size is a sum of data & swap partitions (plus additional offsets)
+        # thus this partition's end is appropriate for comparison with the total size.
         assert(parts_end[3] <= total_size)
         assert(parts_end[3] >= total_size - part_overhead)
 
@@ -141,9 +164,19 @@ class TestPartitionImage:
         """Test that device type file is correctly embedded."""
 
         try:
-            extract_partition(latest_part_image, 4)
+            parts_start, parts_end = print_partition_table(latest_part_image)
+            assert(len(parts_start) == len(parts_end))
 
-            subprocess.check_call(["debugfs", "-R", "dump -p /mender/device_type device_type", "img4.fs"])
+            if len(parts_start) > 4:
+                # For some QEMU x86_64 images extended partition is added as
+                # the fourth one. Hence data partition can be found as the fifth one.
+                data_part_index = 5
+            else:
+                data_part_index = 4
+
+            extract_partition(latest_part_image, data_part_index)
+
+            subprocess.check_call(["debugfs", "-R", "dump -p /mender/device_type device_type", 'img%d.fs' % (data_part_index,)])
 
             assert(os.stat("device_type").st_mode & 0777 == 0444)
 
@@ -164,7 +197,7 @@ class TestPartitionImage:
 
         finally:
             try:
-                os.remove("img4.fs")
+                os.remove('img%d.fs' % (data_part_index,))
                 os.remove("device_type")
             except:
                 pass
@@ -173,10 +206,21 @@ class TestPartitionImage:
         """Test that the owner of files on the data partition is root."""
 
         try:
-            extract_partition(latest_part_image, 4)
+            parts_start, parts_end = print_partition_table(latest_part_image)
+            assert(len(parts_start) == len(parts_end))
+
+            if len(parts_start) > 4:
+                # For some QEMU x86_64 images extended partition is added as
+                # the fourth one. Hence data partition can be found as the fifth one.
+                data_part_index = 5
+            else:
+                data_part_index = 4
+
+
+            extract_partition(latest_part_image, data_part_index)
 
             def check_dir(dir):
-                ls = subprocess.Popen(["debugfs", "-R" "ls -l -p %s" % dir, "img4.fs"], stdout=subprocess.PIPE)
+                ls = subprocess.Popen(["debugfs", "-R" "ls -l -p %s" % dir, 'img%d.fs' % (data_part_index,)], stdout=subprocess.PIPE)
                 entries = ls.stdout.readlines()
                 ls.wait()
 
@@ -205,7 +249,7 @@ class TestPartitionImage:
 
         finally:
             try:
-                os.remove("img4.fs")
+                os.remove('img%d.fs' % (data_part_index,))
             except:
                 pass
 
