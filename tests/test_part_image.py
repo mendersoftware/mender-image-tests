@@ -15,6 +15,7 @@
 
 from fabric.api import *
 
+import json
 import pytest
 import subprocess
 import os
@@ -67,6 +68,17 @@ def print_partition_table(disk_image):
 
     fdisk.wait()
     return starts, ends
+
+def get_data_part_number(disk_image):
+    parts_start, parts_end = print_partition_table(disk_image)
+    assert(len(parts_start) == len(parts_end))
+
+    if len(parts_start) > 4:
+        # For some QEMU x86_64 images extended partition is added as
+        # the fourth one. Hence data partition can be found as the fifth one.
+        return 5
+    else:
+        return 4
 
 
 @pytest.mark.only_with_image('sdimg', 'uefiimg')
@@ -164,15 +176,7 @@ class TestPartitionImage:
         """Test that device type file is correctly embedded."""
 
         try:
-            parts_start, parts_end = print_partition_table(latest_part_image)
-            assert(len(parts_start) == len(parts_end))
-
-            if len(parts_start) > 4:
-                # For some QEMU x86_64 images extended partition is added as
-                # the fourth one. Hence data partition can be found as the fifth one.
-                data_part_index = 5
-            else:
-                data_part_index = 4
+            data_part_index = get_data_part_number(latest_part_image)
 
             extract_partition(latest_part_image, data_part_index)
 
@@ -206,16 +210,7 @@ class TestPartitionImage:
         """Test that the owner of files on the data partition is root."""
 
         try:
-            parts_start, parts_end = print_partition_table(latest_part_image)
-            assert(len(parts_start) == len(parts_end))
-
-            if len(parts_start) > 4:
-                # For some QEMU x86_64 images extended partition is added as
-                # the fourth one. Hence data partition can be found as the fifth one.
-                data_part_index = 5
-            else:
-                data_part_index = 4
-
+            data_part_index = get_data_part_number(latest_part_image)
 
             extract_partition(latest_part_image, data_part_index)
 
@@ -282,6 +277,36 @@ class TestPartitionImage:
                     assert "mender_boot_part=%s" % bitbake_variables['MENDER_ROOTFS_PART_A'][-1] in data
                     assert "upgrade_available=0" in data
                     assert "bootcount=0" in data
+            finally:
+                os.fchdir(old_cwd_fd)
+                os.close(old_cwd_fd)
+
+    # A way to skip if we are not using bitbake. Remove this if the test should
+    # be used also in mender-convert.
+    def test_split_mender_conf(self, bitbake_variables, latest_part_image, bitbake_path):
+        with make_tempdir() as tmpdir:
+            old_cwd_fd = os.open(".", os.O_RDONLY)
+            os.chdir(tmpdir)
+            try:
+                data_part_number = get_data_part_number(latest_part_image)
+
+                extract_partition(latest_part_image, data_part_number)
+
+                # A way to skip if we are not using bitbake. Remove this block
+                # if the test should be used also in mender-convert.
+                if not bitbake_variables.get("LAYER_CONF_VERSION"):
+                    output = subprocess.check_output(["debugfs", "-R", "ls -l /mender",
+                                                      "img%d.fs" % data_part_number])
+                    assert "mender.conf" not in output
+                    return
+
+                subprocess.check_call(["debugfs", "-R", "dump -p /mender/mender.conf mender.conf",
+                                       "img%d.fs" % data_part_number])
+                with open("mender.conf") as fd:
+                    content = json.load(fd)
+                    assert "RootfsPartA" in content
+                    assert "RootfsPartB" in content
+                    assert len(content) == 2
             finally:
                 os.fchdir(old_cwd_fd)
                 os.close(old_cwd_fd)
