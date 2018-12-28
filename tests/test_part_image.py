@@ -47,26 +47,26 @@ def extract_partition(img, number):
 
 
 def print_partition_table(disk_image):
-        fdisk = subprocess.Popen(["fdisk", "-l", "-o", "start,end", disk_image], stdout=subprocess.PIPE)
-        payload = False
-        starts = []
-        ends = []
-        for line in fdisk.stdout:
-            line = line.strip()
-            if payload:
-                match = re.match("^\s*([0-9]+)\s+([0-9]+)\s*$", line)
-                assert(match is not None)
-                starts.append(int(match.group(1)) * 512)
-                # +1 because end position is inclusive.
-                ends.append((int(match.group(2)) + 1) * 512)
-            elif re.match(".*start.*end.*", line, re.IGNORECASE) is not None:
-                # fdisk precedes the output with lots of uninteresting stuff,
-                # this gets us to the meat (/me wishes for a "machine output"
-                # mode).
-                payload = True
+    fdisk = subprocess.Popen(["fdisk", "-l", "-o", "start,end", disk_image], stdout=subprocess.PIPE)
+    payload = False
+    starts = []
+    ends = []
+    for line in fdisk.stdout:
+        line = line.strip()
+        if payload:
+            match = re.match("^\s*([0-9]+)\s+([0-9]+)\s*$", line)
+            assert(match is not None)
+            starts.append(int(match.group(1)) * 512)
+            # +1 because end position is inclusive.
+            ends.append((int(match.group(2)) + 1) * 512)
+        elif re.match(".*start.*end.*", line, re.IGNORECASE) is not None:
+            # fdisk precedes the output with lots of uninteresting stuff,
+            # this gets us to the meat (/me wishes for a "machine output"
+            # mode).
+            payload = True
 
-        fdisk.wait()
-        return starts, ends
+    fdisk.wait()
+    return starts, ends
 
 
 @pytest.mark.only_with_image('sdimg', 'uefiimg')
