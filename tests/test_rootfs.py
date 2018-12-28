@@ -75,6 +75,11 @@ class TestRootfs:
                     data = fd.read()
                 TestRootfs.verify_fstab(data)
 
+                output = subprocess.check_output(["debugfs", "-R", "ls -l /data",
+                                                  latest_rootfs], cwd=tmpdir)
+                # Should only contain "." and "..", IOW empty.
+                assert(len(output.strip().split('\n')) == 2)
+
             except:
                 subprocess.call(["ls", "-l", "artifact_info"])
                 print("Contents of artifact_info:")
