@@ -281,8 +281,7 @@ class TestPartitionImage:
                 os.fchdir(old_cwd_fd)
                 os.close(old_cwd_fd)
 
-    # A way to skip if we are not using bitbake. Remove this if the test should
-    # be used also in mender-convert.
+    @pytest.mark.min_yocto_version("warrior")
     def test_split_mender_conf(self, bitbake_variables, latest_part_image, bitbake_path):
         with make_tempdir() as tmpdir:
             old_cwd_fd = os.open(".", os.O_RDONLY)
