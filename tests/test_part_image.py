@@ -15,6 +15,7 @@
 
 from fabric.api import *
 
+import hashlib
 import json
 import pytest
 import subprocess
@@ -83,7 +84,7 @@ def get_data_part_number(disk_image):
 
 @pytest.mark.only_with_image('sdimg', 'uefiimg')
 @pytest.mark.min_mender_version("1.0.0")
-class TestPartitionImage:
+class TestMostPartitionImages:
 
     @staticmethod
     def verify_fstab(data):
@@ -257,7 +258,7 @@ class TestPartitionImage:
                 subprocess.check_call(["debugfs", "-R", "dump -p /etc/fstab fstab", "img2.fs"])
                 with open("fstab") as fd:
                     data = fd.read()
-                TestPartitionImage.verify_fstab(data)
+                TestMostPartitionImages.verify_fstab(data)
             finally:
                 os.fchdir(old_cwd_fd)
                 os.close(old_cwd_fd)
@@ -309,3 +310,50 @@ class TestPartitionImage:
             finally:
                 os.fchdir(old_cwd_fd)
                 os.close(old_cwd_fd)
+
+@pytest.mark.only_with_image('sdimg', 'uefiimg', 'biosimg', 'gptimg')
+@pytest.mark.min_mender_version("1.0.0")
+class TestAllPartitionImages:
+
+    @pytest.mark.min_yocto_version("warrior")
+    @pytest.mark.xfail(pytest.config.getoption('--test-conversion'), reason="Not yet working in mender-convert", raises=AssertionError, strict=True)
+    def test_equal_checksum_part_image_and_artifact(self, latest_part_image, latest_mender_image):
+        bufsize = 1048576 # 1MiB
+        if ".xz" in subprocess.check_output(["tar", "tf", latest_mender_image]):
+            zext = "xz"
+            ztar = "J"
+        else:
+            zext = "gz"
+            ztar = "z"
+
+        with tempfile.NamedTemporaryFile() as tmp_artifact:
+            subprocess.check_call("tar xOf %s data/0000.tar.%s | tar x%sO > %s"
+                                  % (latest_mender_image, zext, ztar, tmp_artifact.name),
+                                  shell=True)
+            size = os.stat(tmp_artifact.name).st_size
+            hash = hashlib.md5()
+            while True:
+                buf = tmp_artifact.read(bufsize)
+                if len(buf) == 0:
+                    break
+                hash.update(buf)
+            artifact_hash = hash.hexdigest()
+            artifact_ls = subprocess.check_output(["ls", "-l", tmp_artifact.name])
+
+        extract_partition(latest_part_image, 2)
+        try:
+            bytes_read = 0
+            hash = hashlib.md5()
+            with open("img2.fs") as fd:
+                while bytes_read < size:
+                    buf = fd.read(min(size - bytes_read, bufsize))
+                    if len(buf) == 0:
+                        break
+                    bytes_read += len(buf)
+                    hash.update(buf)
+                part_image_hash = hash.hexdigest()
+            img_ls = subprocess.check_output(["ls", "-l", "img2.fs"])
+        finally:
+            os.remove("img2.fs")
+
+        assert artifact_hash == part_image_hash, "Artifact:\n%s\nImage:\n%s" % (artifact_ls, img_ls)
