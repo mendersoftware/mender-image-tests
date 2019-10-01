@@ -316,7 +316,6 @@ class TestMostPartitionImages:
 class TestAllPartitionImages:
 
     @pytest.mark.min_yocto_version("warrior")
-    @pytest.mark.xfail(pytest.config.getoption('--test-conversion'), reason="Not yet working in mender-convert", raises=AssertionError, strict=True)
     def test_equal_checksum_part_image_and_artifact(self, latest_part_image, latest_mender_image):
         bufsize = 1048576 # 1MiB
         if ".xz" in subprocess.check_output(["tar", "tf", latest_mender_image]):
