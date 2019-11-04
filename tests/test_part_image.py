@@ -13,8 +13,6 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-from fabric.api import *
-
 import hashlib
 import json
 import pytest
@@ -23,22 +21,21 @@ import os
 import re
 import tempfile
 
-# Make sure common is imported after fabric, because we override some functions.
 from common import *
 
 def align_up(bytes, alignment):
     """Rounds bytes up to nearest alignment."""
-    return (int(bytes) + int(alignment) - 1) / int(alignment) * int(alignment)
+    return int((int(bytes) + int(alignment) - 1) / int(alignment)) * int(alignment)
 
 
 def extract_partition(img, number):
     output = subprocess.Popen(["fdisk", "-l", "-o", "device,start,end", img],
                               stdout=subprocess.PIPE)
     for line in output.stdout:
-        if re.search("img%d" % number, line) is None:
+        if re.search("img%d" % number, line.decode()) is None:
             continue
 
-        match = re.match("\s*\S+\s+(\S+)\s+(\S+)", line)
+        match = re.match("\s*\S+\s+(\S+)\s+(\S+)", line.decode())
         assert(match is not None)
         start = int(match.group(1))
         end = (int(match.group(2)) + 1)
@@ -53,7 +50,12 @@ def print_partition_table(disk_image):
     payload = False
     starts = []
     ends = []
-    for line in fdisk.stdout:
+
+    while True:
+        line = fdisk.stdout.readline().decode()
+        if not line:
+            break
+
         line = line.strip()
         if payload:
             match = re.match("^\s*([0-9]+)\s+([0-9]+)\s*$", line)
@@ -183,7 +185,7 @@ class TestMostPartitionImages:
 
             subprocess.check_call(["debugfs", "-R", "dump -p /mender/device_type device_type", 'img%d.fs' % (data_part_index,)])
 
-            assert(os.stat("device_type").st_mode & 0777 == 0444)
+            assert(os.stat("device_type").st_mode & 0o777 == 0o444)
 
             fd = open("device_type")
 
@@ -217,10 +219,12 @@ class TestMostPartitionImages:
 
             def check_dir(dir):
                 ls = subprocess.Popen(["debugfs", "-R" "ls -l -p %s" % dir, 'img%d.fs' % (data_part_index,)], stdout=subprocess.PIPE)
-                entries = ls.stdout.readlines()
-                ls.wait()
 
-                for entry in entries:
+                while True:
+                    entry = ls.stdout.readline().decode()
+                    if not entry:
+                        break
+
                     entry = entry.strip()
 
                     if len(entry) == 0:
@@ -238,8 +242,10 @@ class TestMostPartitionImages:
 
                     mode = int(columns[2], 8)
                     # Recurse into directories.
-                    if mode & 040000 != 0 and columns[5] != "." and columns[5] != "..":
+                    if mode & 0o40000 != 0 and columns[5] != "." and columns[5] != "..":
                         check_dir(os.path.join(dir, columns[5]))
+
+                ls.wait()
 
             check_dir("/")
 
@@ -297,7 +303,7 @@ class TestMostPartitionImages:
                 if not bitbake_variables.get("LAYER_CONF_VERSION"):
                     output = subprocess.check_output(["debugfs", "-R", "ls -l /mender",
                                                       "img%d.fs" % data_part_number])
-                    assert "mender.conf" not in output
+                    assert b"mender.conf" not in output
                     return
 
                 subprocess.check_call(["debugfs", "-R", "dump -p /mender/mender.conf mender.conf",
@@ -316,9 +322,10 @@ class TestMostPartitionImages:
 class TestAllPartitionImages:
 
     @pytest.mark.min_yocto_version("warrior")
+    @pytest.mark.conversion
     def test_equal_checksum_part_image_and_artifact(self, latest_part_image, latest_mender_image):
         bufsize = 1048576 # 1MiB
-        if ".xz" in subprocess.check_output(["tar", "tf", latest_mender_image]):
+        if b".xz" in subprocess.check_output(["tar", "tf", latest_mender_image]):
             zext = "xz"
             ztar = "J"
         else:
@@ -337,13 +344,13 @@ class TestAllPartitionImages:
                     break
                 hash.update(buf)
             artifact_hash = hash.hexdigest()
-            artifact_ls = subprocess.check_output(["ls", "-l", tmp_artifact.name])
+            artifact_ls = subprocess.check_output(["ls", "-l", tmp_artifact.name]).decode()
 
         extract_partition(latest_part_image, 2)
         try:
             bytes_read = 0
             hash = hashlib.md5()
-            with open("img2.fs") as fd:
+            with open("img2.fs", 'rb') as fd:
                 while bytes_read < size:
                     buf = fd.read(min(size - bytes_read, bufsize))
                     if len(buf) == 0:
@@ -351,7 +358,7 @@ class TestAllPartitionImages:
                     bytes_read += len(buf)
                     hash.update(buf)
                 part_image_hash = hash.hexdigest()
-            img_ls = subprocess.check_output(["ls", "-l", "img2.fs"])
+            img_ls = subprocess.check_output(["ls", "-l", "img2.fs"]).decode()
         finally:
             os.remove("img2.fs")
 

@@ -13,15 +13,12 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-from fabric.api import *
-
 import pytest
 import subprocess
 import os
 import tempfile
 import stat
 
-# Make sure common is imported after fabric, because we override some functions.
 from common import *
 
 
@@ -67,7 +64,7 @@ class TestRootfs:
                 with open(os.path.join(tmpdir, "artifact_info")) as fd:
                     data = fd.read()
                 TestRootfs.verify_artifact_info_data(data, bitbake_variables["MENDER_ARTIFACT_NAME"])
-                assert(os.stat(os.path.join(tmpdir, "artifact_info")).st_mode & 0777 == 0644)
+                assert(os.stat(os.path.join(tmpdir, "artifact_info")).st_mode & 0o777 == 0o644)
 
                 subprocess.check_call(["debugfs", "-R", "dump -p /etc/fstab fstab",
                                        latest_rootfs], cwd=tmpdir)
@@ -78,7 +75,7 @@ class TestRootfs:
                 output = subprocess.check_output(["debugfs", "-R", "ls -l /data",
                                                   latest_rootfs], cwd=tmpdir)
                 # Should only contain "." and "..", IOW empty.
-                assert(len(output.strip().split('\n')) == 2)
+                assert(len(output.strip().split(b'\n')) == 2)
 
             except:
                 subprocess.call(["ls", "-l", "artifact_info"])
