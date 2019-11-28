@@ -31,16 +31,20 @@ def align_up(bytes, alignment):
 def extract_partition(img, number):
     output = subprocess.Popen(["fdisk", "-l", "-o", "device,start,end", img],
                               stdout=subprocess.PIPE)
+    start = None
+    end = None
     for line in output.stdout:
         if re.search("img%d" % number, line.decode()) is None:
             continue
 
-        match = re.match("\s*\S+\s+(\S+)\s+(\S+)", line.decode())
+        match = re.match(r"\s*\S+\s+(\S+)\s+(\S+)", line.decode())
         assert(match is not None)
         start = int(match.group(1))
         end = (int(match.group(2)) + 1)
     output.wait()
 
+    assert start is not None
+    assert end is not None
     subprocess.check_call(["dd", "if=" + img, "of=img%d.fs" % number,
                            "skip=%d" % start, "count=%d" % (end - start)])
 
