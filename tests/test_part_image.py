@@ -31,16 +31,20 @@ def align_up(bytes, alignment):
 def extract_partition(img, number):
     output = subprocess.Popen(["fdisk", "-l", "-o", "device,start,end", img],
                               stdout=subprocess.PIPE)
+    start = None
+    end = None
     for line in output.stdout:
         if re.search("img%d" % number, line.decode()) is None:
             continue
 
-        match = re.match("\s*\S+\s+(\S+)\s+(\S+)", line.decode())
+        match = re.match(r"\s*\S+\s+(\S+)\s+(\S+)", line.decode())
         assert(match is not None)
         start = int(match.group(1))
         end = (int(match.group(2)) + 1)
     output.wait()
 
+    assert start is not None
+    assert end is not None
     subprocess.check_call(["dd", "if=" + img, "of=img%d.fs" % number,
                            "skip=%d" % start, "count=%d" % (end - start)])
 
@@ -175,7 +179,7 @@ class TestMostPartitionImages:
         assert(parts_end[3] >= total_size - part_overhead)
 
 
-    def test_device_type(self, latest_part_image, bitbake_variables, bitbake_path):
+    def test_device_type(self, bitbake_path, bitbake_variables, latest_part_image):
         """Test that device type file is correctly embedded."""
 
         try:
@@ -209,7 +213,7 @@ class TestMostPartitionImages:
             except:
                 pass
 
-    def test_data_ownership(self, latest_part_image, bitbake_variables, bitbake_path):
+    def test_data_ownership(self, bitbake_path, bitbake_variables, latest_part_image):
         """Test that the owner of files on the data partition is root."""
 
         try:
@@ -255,7 +259,7 @@ class TestMostPartitionImages:
             except:
                 pass
 
-    def test_fstab_correct(self, bitbake_path, latest_part_image):
+    def test_fstab_correct(self, bitbake_path, bitbake_variables, latest_part_image):
         with make_tempdir() as tmpdir:
             old_cwd_fd = os.open(".", os.O_RDONLY)
             os.chdir(tmpdir)
@@ -270,7 +274,7 @@ class TestMostPartitionImages:
                 os.close(old_cwd_fd)
 
     @pytest.mark.only_with_distro_feature('mender-grub')
-    def test_mender_grubenv(self, bitbake_path, latest_part_image, bitbake_variables):
+    def test_mender_grubenv(self, bitbake_path, bitbake_variables, latest_part_image):
         with make_tempdir() as tmpdir:
             old_cwd_fd = os.open(".", os.O_RDONLY)
             os.chdir(tmpdir)
@@ -289,7 +293,7 @@ class TestMostPartitionImages:
                 os.close(old_cwd_fd)
 
     @pytest.mark.min_yocto_version("warrior")
-    def test_split_mender_conf(self, bitbake_variables, latest_part_image, bitbake_path):
+    def test_split_mender_conf(self, bitbake_path, bitbake_variables, latest_part_image):
         with make_tempdir() as tmpdir:
             old_cwd_fd = os.open(".", os.O_RDONLY)
             os.chdir(tmpdir)
@@ -323,7 +327,7 @@ class TestAllPartitionImages:
 
     @pytest.mark.min_yocto_version("warrior")
     @pytest.mark.conversion
-    def test_equal_checksum_part_image_and_artifact(self, latest_part_image, latest_mender_image):
+    def test_equal_checksum_part_image_and_artifact(self, bitbake_variables, latest_part_image, latest_mender_image):
         bufsize = 1048576 # 1MiB
         if b".xz" in subprocess.check_output(["tar", "tf", latest_mender_image]):
             zext = "xz"

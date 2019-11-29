@@ -54,7 +54,7 @@ class TestRootfs:
 
     @pytest.mark.only_with_image('ext4', 'ext3', 'ext2')
     @pytest.mark.min_mender_version("1.0.0")
-    def test_expected_files_ext234(self, latest_rootfs, bitbake_variables, bitbake_path):
+    def test_expected_files_ext234(self, bitbake_path, bitbake_variables, latest_rootfs):
         """Test that artifact_info file is correctly embedded."""
 
         with make_tempdir() as tmpdir:
@@ -85,7 +85,7 @@ class TestRootfs:
 
     @pytest.mark.only_with_image('ubifs')
     @pytest.mark.min_mender_version("1.2.0")
-    def test_expected_files_ubifs(self, latest_ubifs, bitbake_variables, bitbake_path):
+    def test_expected_files_ubifs(self, bitbake_path, bitbake_variables, latest_ubifs):
         """Test that artifact_info file is correctly embedded."""
 
         with make_tempdir() as tmpdir:
