@@ -62,7 +62,7 @@ def print_partition_table(disk_image):
 
         line = line.strip()
         if payload:
-            match = re.match("^\s*([0-9]+)\s+([0-9]+)\s*$", line)
+            match = re.match(r"^\s*([0-9]+)\s+([0-9]+)\s*$", line)
             assert(match is not None)
             starts.append(int(match.group(1)) * 512)
             # +1 because end position is inclusive.
