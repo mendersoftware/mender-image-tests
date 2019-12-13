@@ -72,10 +72,17 @@ class TestRootfs:
                     data = fd.read()
                 TestRootfs.verify_fstab(data)
 
-                output = subprocess.check_output(["debugfs", "-R", "ls -l /data",
-                                                  latest_rootfs], cwd=tmpdir)
-                # Should only contain "." and "..", IOW empty.
-                assert(len(output.strip().split(b'\n')) == 2)
+                output = subprocess.check_output(["debugfs", "-R", "ls -l -p /data",
+                                                  latest_rootfs], cwd=tmpdir).decode()
+                for line in output.split('\n'):
+                    splitted = line.split('/')
+                    if len(splitted) <= 1:
+                        continue
+                    # Should only contain "." and "..". In addition, debugfs
+                    # sometimes, but not always, returns a strange 0 entry, with
+                    # no name, but a "0" in the sixth column. It is not present
+                    # when mounting the filesystem.
+                    assert splitted[5] == "." or splitted[5] == ".." or splitted[6] == "0"
 
             except:
                 subprocess.call(["ls", "-l", "artifact_info"])
