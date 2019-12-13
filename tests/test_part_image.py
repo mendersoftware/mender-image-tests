@@ -313,6 +313,7 @@ class TestMostPartitionImages:
                 os.fchdir(old_cwd_fd)
                 os.close(old_cwd_fd)
 
+
 @pytest.mark.only_with_image('sdimg', 'uefiimg', 'biosimg', 'gptimg')
 @pytest.mark.min_mender_version("1.0.0")
 class TestAllPartitionImages:
