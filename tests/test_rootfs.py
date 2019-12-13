@@ -84,6 +84,11 @@ class TestRootfs:
                     # when mounting the filesystem.
                     assert splitted[5] == "." or splitted[5] == ".." or splitted[6] == "0"
 
+                # Check whether mender exists in /usr/bin
+                output = subprocess.check_output(["debugfs", "-R", "ls -l -p /usr/bin",
+                                                  latest_rootfs], cwd=tmpdir).decode()
+                assert any([line.split('/')[5] == "mender" for line in output.split('\n') if len(line) > 0])
+
             except:
                 subprocess.call(["ls", "-l", "artifact_info"])
                 print("Contents of artifact_info:")
