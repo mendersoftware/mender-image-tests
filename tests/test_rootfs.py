@@ -72,10 +72,22 @@ class TestRootfs:
                     data = fd.read()
                 TestRootfs.verify_fstab(data)
 
-                output = subprocess.check_output(["debugfs", "-R", "ls -l /data",
-                                                  latest_rootfs], cwd=tmpdir)
-                # Should only contain "." and "..", IOW empty.
-                assert(len(output.strip().split(b'\n')) == 2)
+                output = subprocess.check_output(["debugfs", "-R", "ls -l -p /data",
+                                                  latest_rootfs], cwd=tmpdir).decode()
+                for line in output.split('\n'):
+                    splitted = line.split('/')
+                    if len(splitted) <= 1:
+                        continue
+                    # Should only contain "." and "..". In addition, debugfs
+                    # sometimes, but not always, returns a strange 0 entry, with
+                    # no name, but a "0" in the sixth column. It is not present
+                    # when mounting the filesystem.
+                    assert splitted[5] == "." or splitted[5] == ".." or splitted[6] == "0"
+
+                # Check whether mender exists in /usr/bin
+                output = subprocess.check_output(["debugfs", "-R", "ls -l -p /usr/bin",
+                                                  latest_rootfs], cwd=tmpdir).decode()
+                assert any([line.split('/')[5] == "mender" for line in output.split('\n') if len(line) > 0])
 
             except:
                 subprocess.call(["ls", "-l", "artifact_info"])
@@ -104,3 +116,12 @@ class TestRootfs:
             with open(path) as fd:
                 data = fd.read()
             TestRootfs.verify_fstab(data)
+
+    @pytest.mark.only_with_distro_feature('mender-convert')
+    @pytest.mark.min_mender_version("1.0.0")
+    def test_unconfigured_image(self, latest_rootfs):
+        """Test that images from mender-convert are unconfigured. We want
+        `mender setup` to be the configuration mechanism there."""
+        output = subprocess.check_output(["debugfs", "-R", "ls -l -p /etc/mender",
+                                          latest_rootfs]).decode()
+        assert "mender.conf" not in output

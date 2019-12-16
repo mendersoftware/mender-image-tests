@@ -302,14 +302,6 @@ class TestMostPartitionImages:
 
                 extract_partition(latest_part_image, data_part_number)
 
-                # A way to skip if we are not using bitbake. Remove this block
-                # if the test should be used also in mender-convert.
-                if not bitbake_variables.get("LAYER_CONF_VERSION"):
-                    output = subprocess.check_output(["debugfs", "-R", "ls -l /mender",
-                                                      "img%d.fs" % data_part_number])
-                    assert b"mender.conf" not in output
-                    return
-
                 subprocess.check_call(["debugfs", "-R", "dump -p /mender/mender.conf mender.conf",
                                        "img%d.fs" % data_part_number])
                 with open("mender.conf") as fd:
@@ -320,6 +312,7 @@ class TestMostPartitionImages:
             finally:
                 os.fchdir(old_cwd_fd)
                 os.close(old_cwd_fd)
+
 
 @pytest.mark.only_with_image('sdimg', 'uefiimg', 'biosimg', 'gptimg')
 @pytest.mark.min_mender_version("1.0.0")
