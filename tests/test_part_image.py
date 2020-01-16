@@ -88,7 +88,7 @@ def get_data_part_number(disk_image):
         return 4
 
 
-@pytest.mark.only_with_image('sdimg', 'uefiimg')
+@pytest.mark.only_with_image('img', 'uefiimg')
 @pytest.mark.min_mender_version("1.0.0")
 class TestMostPartitionImages:
 
@@ -314,7 +314,7 @@ class TestMostPartitionImages:
                 os.close(old_cwd_fd)
 
 
-@pytest.mark.only_with_image('sdimg', 'uefiimg', 'biosimg', 'gptimg')
+@pytest.mark.only_with_image('img', 'uefiimg', 'biosimg', 'gptimg')
 @pytest.mark.min_mender_version("1.0.0")
 class TestAllPartitionImages:
 
