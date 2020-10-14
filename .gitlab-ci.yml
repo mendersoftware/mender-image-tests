@@ -1,0 +1,6 @@
+stages:
+  - test
+
+include:
+  - project: 'Northern.tech/Mender/mendertesting'
+    file: '.gitlab-ci-check-python3-format.yml'

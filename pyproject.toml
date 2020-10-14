@@ -1,0 +1,17 @@
+[tool.black]
+target-version = ['py38']
+include = '\.py$'
+exclude = '''
+(
+  /(
+      \.eggs         # exclude a few common directories
+    | \.git
+    | \.mypy_cache
+    | .*\.venv
+    | .*venv
+    | _build
+    | build
+    | dist
+  )/
+)
+'''
