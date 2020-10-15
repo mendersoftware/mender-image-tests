@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright 2017 Northern.tech AS
+# Copyright 2020 Northern.tech AS
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -15,13 +15,21 @@
 
 import hashlib
 import json
-import pytest
 import subprocess
 import os
 import re
 import tempfile
 
-from common import *
+import pytest
+
+from common import (
+    determine_active_passive_part,
+    make_tempdir,
+    put_no_sftp,
+    run_after_connect,
+    reboot,
+)
+from helpers import Helpers
 
 
 def align_up(bytes, alignment):
