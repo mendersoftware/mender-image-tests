@@ -135,7 +135,7 @@ class TestUpdates:
         try:
             # Make a too big update
             subprocess.call(
-                "dd if=/dev/zero of=image.dat bs=1M count=0 seek=1024", shell=True
+                "dd if=/dev/zero of=image.dat bs=1M count=0 seek=4096", shell=True
             )
             subprocess.call(
                 "mender-artifact write rootfs-image -t %s -n test-update-too-big %s image.dat -o image-too-big.mender"
