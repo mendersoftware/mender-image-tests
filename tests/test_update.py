@@ -663,12 +663,28 @@ class TestUpdates:
                 shutil.rmtree(tmpdir, ignore_errors=True)
 
         put_no_sftp("image.mender", connection, remote="/data/image.mender")
+
+        # mender-convert'ed images don't have transient mender.conf
+        device_has_mender_conf = (
+            connection.run("test -f /etc/mender/mender.conf", warn=True).return_code
+            == 0
+        )
+        # mender-convert'ed images don't have this directory, but the test uses
+        # it to save certificates
+        connection.run("mkdir -p /data/etc/mender")
+
         try:
-            # Update key configuration on device.
-            connection.run(
-                "cp /etc/mender/mender.conf /data/etc/mender/mender.conf.bak"
-            )
-            get_no_sftp("/etc/mender/mender.conf", connection)
+            # Get configuration from device or create an empty one
+            if device_has_mender_conf:
+                connection.run(
+                    "cp /etc/mender/mender.conf /data/etc/mender/mender.conf.bak"
+                )
+                get_no_sftp("/etc/mender/mender.conf", connection)
+            else:
+                with open("mender.conf", "w") as fd:
+                    json.dump({}, fd)
+
+            # Update key in configuration.
             with open("mender.conf") as fd:
                 config = json.load(fd)
             if sig_case.key:
@@ -683,6 +699,8 @@ class TestUpdates:
             else:
                 if config.get("ArtifactVerifyKey"):
                     del config["ArtifactVerifyKey"]
+
+            # Send new configuration to device
             with open("mender.conf", "w") as fd:
                 json.dump(config, fd)
             put_no_sftp("mender.conf", connection, remote="/etc/mender/mender.conf")
@@ -751,9 +769,10 @@ class TestUpdates:
             connection.run("fw_setenv mender_boot_part %s" % active[-1:])
             connection.run("fw_setenv mender_boot_part_hex %x" % int(active[-1:]))
             connection.run("fw_setenv upgrade_available 0")
-            connection.run(
-                "cp -L /data/etc/mender/mender.conf.bak $(realpath /etc/mender/mender.conf)"
-            )
+            if device_has_mender_conf:
+                connection.run(
+                    "cp -L /data/etc/mender/mender.conf.bak $(realpath /etc/mender/mender.conf)"
+                )
             if sig_key:
                 connection.run(
                     "rm -f /etc/mender/%s" % os.path.basename(sig_key.public)
