@@ -22,13 +22,8 @@ import tempfile
 
 import pytest
 
-from common import (
-    determine_active_passive_part,
-    make_tempdir,
-    put_no_sftp,
-    run_after_connect,
-    reboot,
-)
+from common import make_tempdir
+
 from helpers import Helpers
 
 

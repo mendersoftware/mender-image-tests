@@ -542,9 +542,7 @@ class TestUpdates:
         ],
     )
     @pytest.mark.min_mender_version("1.1.0")
-    def test_signed_updates(
-        self, sig_case, bitbake_path, bitbake_variables, connection
-    ):
+    def test_signed_updates(self, sig_case, bitbake_variables, connection):
         """Test various combinations of signed and unsigned, present and non-
         present verification keys."""
 
