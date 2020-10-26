@@ -930,7 +930,7 @@ class TestUpdates:
             os.remove("image.mender")
             os.remove("image.dat")
 
-    @pytest.mark.min_mender_version("2.0.0")
+    @pytest.mark.min_mender_version("2.3.1")
     def test_standalone_update_rollback(self, bitbake_variables, connection):
         """Test that the rollback state on the active partition does roll back to the
         currently running active partition after a failed update.
