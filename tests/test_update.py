@@ -74,7 +74,7 @@ class SignatureCase:
 
 @pytest.mark.usefixtures("setup_board", "bitbake_path")
 class TestUpdates:
-    @pytest.mark.min_mender_version("1.0.0")
+    @pytest.mark.min_mender_client_version("1.0.0")
     def test_broken_image_update(self, bitbake_variables, connection):
 
         file_flag = Helpers.get_file_flag(bitbake_variables)
@@ -125,7 +125,7 @@ class TestUpdates:
             if os.path.exists("image.dat"):
                 os.remove("image.dat")
 
-    @pytest.mark.min_mender_version("1.0.0")
+    @pytest.mark.min_mender_client_version("1.0.0")
     def test_too_big_image_update(self, bitbake_variables, connection):
 
         file_flag = Helpers.get_file_flag(bitbake_variables)
@@ -167,7 +167,7 @@ class TestUpdates:
             if os.path.exists("image.dat"):
                 os.remove("image.dat")
 
-    @pytest.mark.min_mender_version("1.0.0")
+    @pytest.mark.min_mender_client_version("1.0.0")
     def test_network_based_image_update(
         self,
         successful_image_update_mender,
@@ -541,7 +541,7 @@ class TestUpdates:
             ),
         ],
     )
-    @pytest.mark.min_mender_version("1.1.0")
+    @pytest.mark.min_mender_client_version("1.1.0")
     def test_signed_updates(self, sig_case, bitbake_variables, connection):
         """Test various combinations of signed and unsigned, present and non-
         present verification keys."""
@@ -777,7 +777,7 @@ class TestUpdates:
                 )
 
     @pytest.mark.only_with_distro_feature("mender-grub")
-    @pytest.mark.min_mender_version("1.0.0")
+    @pytest.mark.min_mender_client_version("1.0.0")
     def test_redundant_grub_env(
         self, successful_image_update_mender, bitbake_variables, connection
     ):
@@ -849,7 +849,7 @@ class TestUpdates:
 
     @pytest.mark.only_with_distro_feature("mender-uboot")
     @pytest.mark.only_with_image("sdimg", "uefiimg")
-    @pytest.mark.min_mender_version("1.6.0")
+    @pytest.mark.min_mender_client_version("1.6.0")
     def test_uboot_mender_saveenv_canary(self, bitbake_variables, connection):
         """Tests that the mender_saveenv_canary works correctly, which tests
         that Mender will not proceed unless the U-Boot boot loader has saved the
@@ -930,7 +930,7 @@ class TestUpdates:
             os.remove("image.mender")
             os.remove("image.dat")
 
-    @pytest.mark.min_mender_version("2.3.1")
+    @pytest.mark.min_mender_client_version("2.3.1")
     def test_standalone_update_rollback(self, bitbake_variables, connection):
         """Test that the rollback state on the active partition does roll back to the
         currently running active partition after a failed update.

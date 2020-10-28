@@ -104,7 +104,7 @@ def get_data_part_number(disk_image):
 
 
 @pytest.mark.only_with_image("sdimg", "uefiimg")
-@pytest.mark.min_mender_version("1.0.0")
+@pytest.mark.min_mender_client_version("1.0.0")
 class TestMostPartitionImages:
     @staticmethod
     def verify_fstab(data):
@@ -379,7 +379,7 @@ class TestMostPartitionImages:
 
 
 @pytest.mark.only_with_image("sdimg", "uefiimg", "biosimg", "gptimg")
-@pytest.mark.min_mender_version("1.0.0")
+@pytest.mark.min_mender_client_version("1.0.0")
 class TestAllPartitionImages:
     @pytest.mark.min_yocto_version("warrior")
     @pytest.mark.conversion
