@@ -751,7 +751,7 @@ class TestUpdates:
             # In Fabric2 there might be different exception thrown in that case
             # which is UnexpectedExit.
             except (SystemExit, UnexpectedExit):
-                if "mender-ubi" in bitbake_variables["DISTRO_FEATURES"].split():
+                if "mender-ubi" in bitbake_variables["MENDER_FEATURES"].split():
                     # For UBI volumes specifically: The UBI_IOCVOLUP call which
                     # Mender uses prior to writing the data, takes a size
                     # argument, and if you don't write that amount of bytes, the
@@ -776,7 +776,7 @@ class TestUpdates:
                     "rm -f /etc/mender/%s" % os.path.basename(sig_key.public)
                 )
 
-    @pytest.mark.only_with_distro_feature("mender-grub")
+    @pytest.mark.only_with_mender_feature("mender-grub")
     @pytest.mark.min_mender_client_version("1.0.0")
     def test_redundant_grub_env(
         self, successful_image_update_mender, bitbake_variables, connection
@@ -793,7 +793,7 @@ class TestUpdates:
         # Corrupt the passive partition.
         connection.run("dd if=/dev/zero of=%s bs=1024 count=1024" % passive)
 
-        if "mender-bios" in bitbake_variables["DISTRO_FEATURES"].split():
+        if "mender-bios" in bitbake_variables["MENDER_FEATURES"].split():
             env_dir = "/boot/grub"
         else:
             env_dir = "/boot/efi/EFI/BOOT"
@@ -847,7 +847,7 @@ class TestUpdates:
                     "mv %s/{mender_grubenv2/lock.backup,mender_grubenv2/lock}" % env_dir
                 )
 
-    @pytest.mark.only_with_distro_feature("mender-uboot")
+    @pytest.mark.only_with_mender_feature("mender-uboot")
     @pytest.mark.only_with_image("sdimg", "uefiimg")
     @pytest.mark.min_mender_client_version("1.6.0")
     def test_uboot_mender_saveenv_canary(self, bitbake_variables, connection):
