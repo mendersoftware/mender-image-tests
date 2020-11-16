@@ -54,7 +54,7 @@ class TestRootfs:
             occurred[cols[1]] = True
 
     @pytest.mark.only_with_image("ext4", "ext3", "ext2")
-    @pytest.mark.min_mender_client_version("1.0.0")
+    @pytest.mark.min_mender_version("2.5.0")
     def test_expected_files_ext234(
         self, bitbake_path, bitbake_variables, latest_rootfs
     ):
@@ -116,6 +116,24 @@ class TestRootfs:
                     ]
                 )
 
+                # Check whether DBus files exist
+                output = subprocess.check_output(
+                    [
+                        "debugfs",
+                        "-R",
+                        "ls -l -p /usr/share/dbus-1/system.d",
+                        latest_rootfs,
+                    ],
+                    cwd=tmpdir,
+                ).decode()
+                assert any(
+                    [
+                        line.split("/")[5] == "io.mender.AuthenticationManager.conf"
+                        for line in output.split("\n")
+                        if len(line) > 0
+                    ]
+                )
+
             except:
                 subprocess.call(["ls", "-l", "artifact_info"])
                 print("Contents of artifact_info:")
@@ -123,7 +141,7 @@ class TestRootfs:
                 raise
 
     @pytest.mark.only_with_image("ubifs")
-    @pytest.mark.min_mender_client_version("1.2.0")
+    @pytest.mark.min_mender_version("1.2.0")
     def test_expected_files_ubifs(self, bitbake_path, bitbake_variables, latest_ubifs):
         """Test that artifact_info file is correctly embedded."""
 
@@ -150,7 +168,7 @@ class TestRootfs:
             TestRootfs.verify_fstab(data)
 
     @pytest.mark.only_with_distro_feature("mender-convert")
-    @pytest.mark.min_mender_client_version("1.0.0")
+    @pytest.mark.min_mender_version("1.0.0")
     def test_unconfigured_image(self, latest_rootfs):
         """Test that images from mender-convert are unconfigured. We want
         `mender setup` to be the configuration mechanism there."""
