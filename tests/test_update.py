@@ -24,7 +24,7 @@ from fabric import Connection
 from invoke import UnexpectedExit
 import pytest
 
-from common import (
+from utils.common import (
     reboot,
     run_after_connect,
     determine_active_passive_part,
@@ -32,7 +32,7 @@ from common import (
     get_no_sftp,
     signing_key,
 )
-from helpers import Helpers
+from utils.helpers import Helpers
 
 
 class SignatureCase:
