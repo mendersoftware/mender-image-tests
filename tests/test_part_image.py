@@ -158,7 +158,7 @@ class TestMostPartitionImages:
             int(bitbake_variables["MENDER_DATA_PART_SIZE_MB"]) * 1024 * 1024
         )
 
-        if "mender-uboot" in bitbake_variables["DISTRO_FEATURES"]:
+        if "mender-uboot" in bitbake_variables["MENDER_FEATURES"]:
             try:
                 uboot_env_size = os.stat(
                     os.path.join(bitbake_variables["DEPLOY_DIR_IMAGE"], "uboot.env")
@@ -323,7 +323,7 @@ class TestMostPartitionImages:
                 os.fchdir(old_cwd_fd)
                 os.close(old_cwd_fd)
 
-    @pytest.mark.only_with_distro_feature("mender-grub")
+    @pytest.mark.only_with_mender_feature("mender-grub")
     def test_mender_grubenv(self, bitbake_path, bitbake_variables, latest_part_image):
         with make_tempdir() as tmpdir:
             old_cwd_fd = os.open(".", os.O_RDONLY)

@@ -167,7 +167,7 @@ class TestRootfs:
                 data = fd.read()
             TestRootfs.verify_fstab(data)
 
-    @pytest.mark.only_with_distro_feature("mender-convert")
+    @pytest.mark.only_with_mender_feature("mender-convert")
     @pytest.mark.min_mender_version("1.0.0")
     def test_unconfigured_image(self, latest_rootfs):
         """Test that images from mender-convert are unconfigured. We want
