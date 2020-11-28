@@ -793,7 +793,10 @@ class TestUpdates:
         # Corrupt the passive partition.
         connection.run("dd if=/dev/zero of=%s bs=1024 count=1024" % passive)
 
-        if "mender-bios" in bitbake_variables["MENDER_FEATURES"].split():
+        if (
+            "mender-bios" in bitbake_variables.get("MENDER_FEATURES", "").split()
+            or "mender-bios" in bitbake_variables.get("DISTRO_FEATURES", "").split()
+        ):
             env_dir = "/boot/grub"
         else:
             env_dir = "/boot/efi/EFI/BOOT"
