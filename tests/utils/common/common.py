@@ -320,7 +320,7 @@ def latest_build_artifact(request, builddir, extension, sdimg_location=None):
     return output
 
 
-def get_bitbake_variables(request, target, env_setup="true", export_only=False):
+def get_bitbake_variables(request, target, prepared_test_build=None, export_only=False):
     lines = []
 
     if request.config.getoption("--test-conversion"):
@@ -330,6 +330,13 @@ def get_bitbake_variables(request, target, env_setup="true", export_only=False):
     else:
         current_dir = os.open(".", os.O_RDONLY)
         os.chdir(os.environ["BUILDDIR"])
+        if prepared_test_build is not None:
+            env_setup = "cd %s && . oe-init-build-env %s" % (
+                prepared_test_build["bitbake_corebase"],
+                prepared_test_build["build_dir"],
+            )
+        else:
+            env_setup = "true"
         ps = subprocess.Popen(
             "%s && bitbake -e %s" % (env_setup, target),
             stdout=subprocess.PIPE,
