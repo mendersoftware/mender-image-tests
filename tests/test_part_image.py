@@ -22,9 +22,9 @@ import tempfile
 
 import pytest
 
-from common import make_tempdir
+from utils.common import make_tempdir
 
-from helpers import Helpers
+from utils.helpers import Helpers
 
 
 def align_up(bytes, alignment):
@@ -158,7 +158,9 @@ class TestMostPartitionImages:
             int(bitbake_variables["MENDER_DATA_PART_SIZE_MB"]) * 1024 * 1024
         )
 
-        if "mender-uboot" in bitbake_variables["MENDER_FEATURES"]:
+        if "mender-uboot" in bitbake_variables.get(
+            "MENDER_FEATURES", ""
+        ) or "mender-uboot" in bitbake_variables.get("DISTRO_FEATURES", ""):
             try:
                 uboot_env_size = os.stat(
                     os.path.join(bitbake_variables["DEPLOY_DIR_IMAGE"], "uboot.env")
