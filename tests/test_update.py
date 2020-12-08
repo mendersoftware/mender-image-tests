@@ -751,7 +751,11 @@ class TestUpdates:
             # In Fabric2 there might be different exception thrown in that case
             # which is UnexpectedExit.
             except (SystemExit, UnexpectedExit):
-                if "mender-ubi" in bitbake_variables["MENDER_FEATURES"].split():
+                if (
+                    "mender-ubi" in bitbake_variables.get("MENDER_FEATURES", "").split()
+                    or "mender-ubi"
+                    in bitbake_variables.get("DISTRO_FEATURES", "").split()
+                ):
                     # For UBI volumes specifically: The UBI_IOCVOLUP call which
                     # Mender uses prior to writing the data, takes a size
                     # argument, and if you don't write that amount of bytes, the
