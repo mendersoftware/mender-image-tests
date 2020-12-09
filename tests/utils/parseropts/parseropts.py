@@ -127,6 +127,9 @@ def pytest_configure(config):
         "markers",
         "conversion: mark test to run only when --test-conversion cli parameter is provided",
     )
+    config.addinivalue_line(
+        "markers", "not_for_machine: exclude only for the given machine"
+    )
 
 
 def pytest_collection_modifyitems(config, items):
