@@ -857,6 +857,7 @@ class TestUpdates:
     @pytest.mark.only_with_mender_feature("mender-uboot")
     @pytest.mark.only_with_image("sdimg", "uefiimg")
     @pytest.mark.min_mender_version("1.6.0")
+    @pytest.mark.min_yocto_version("dunfell")
     def test_uboot_mender_saveenv_canary(self, bitbake_variables, connection):
         """Tests that the mender_saveenv_canary works correctly, which tests
         that Mender will not proceed unless the U-Boot boot loader has saved the
