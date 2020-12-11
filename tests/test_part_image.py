@@ -384,7 +384,6 @@ class TestMostPartitionImages:
 @pytest.mark.min_mender_version("1.0.0")
 class TestAllPartitionImages:
     @pytest.mark.min_yocto_version("warrior")
-    @pytest.mark.conversion
     def test_equal_checksum_part_image_and_artifact(
         self, bitbake_variables, latest_part_image, latest_mender_image
     ):

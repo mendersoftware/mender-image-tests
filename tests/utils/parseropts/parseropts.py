@@ -124,21 +124,5 @@ def pytest_configure(config):
     )
     config.addinivalue_line("markers", "commercial: run commercial tests")
     config.addinivalue_line(
-        "markers",
-        "conversion: mark test to run only when --test-conversion cli parameter is provided",
-    )
-    config.addinivalue_line(
         "markers", "not_for_machine: exclude only for the given machine"
     )
-
-
-def pytest_collection_modifyitems(config, items):
-    if config.getoption("--test-conversion"):
-        # --test-conversion given so do not skip conversion tests
-        return
-    skip_conversion = pytest.mark.skip(
-        reason="conversion tests not yet working in Yocto"
-    )
-    for item in items:
-        if "conversion" in item.keywords:
-            item.add_marker(skip_conversion)
