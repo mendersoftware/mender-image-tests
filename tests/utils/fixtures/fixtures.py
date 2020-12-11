@@ -656,6 +656,29 @@ def only_with_mender_feature(request, bitbake_variables):
             )
 
 
+@pytest.fixture(autouse=True)
+def not_with_mender_feature(request, bitbake_variables):
+    """Fixture that enables use of `not_with_mender_feature(feature1, feature2)` mark.
+    Example::
+
+       @pytest.mark.not_with_mender_feature('mender-uboot')
+       def test_foo():
+           # executes only if mender-uboot feature is not enabled
+           pass
+
+    """
+
+    mark = request.node.get_closest_marker("not_with_mender_feature")
+    if mark is not None:
+        features = mark.args
+        current = bitbake_variables.get("MENDER_FEATURES", "").strip().split()
+        if any([feature in current for feature in features]):
+            pytest.skip(
+                "supported distro feature in {} "
+                "(excludes {})".format(", ".join(current), ", ".join(features))
+            )
+
+
 @pytest.fixture(scope="session")
 def host(request):
     return request.config.getoption("--host")
