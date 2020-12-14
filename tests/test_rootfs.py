@@ -199,8 +199,9 @@ class TestRootfs:
                 )
                 with open(os.path.join(tmpdir, "mender-shell.conf")) as fd:
                     mender_shell_vars = json.load(fd)
-                assert len(mender_shell_vars) == 1, mender_shell_vars
+                assert len(mender_shell_vars) == 2, mender_shell_vars
                 assert "ServerURL" in mender_shell_vars, mender_shell_vars
+                assert "User" in mender_shell_vars, mender_shell_vars
 
     @pytest.mark.only_with_image("ubifs")
     @pytest.mark.min_mender_version("1.2.0")
