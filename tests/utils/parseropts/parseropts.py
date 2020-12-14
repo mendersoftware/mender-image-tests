@@ -122,6 +122,10 @@ def pytest_configure(config):
         "markers",
         "only_with_mender_feature: execute only if all given features are enabled",
     )
+    config.addinivalue_line(
+        "markers",
+        "not_with_mender_feature: execute only if any features is not enabled",
+    )
     config.addinivalue_line("markers", "commercial: run commercial tests")
     config.addinivalue_line(
         "markers", "not_for_machine: exclude only for the given machine"
