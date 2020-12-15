@@ -141,41 +141,67 @@ class TestRootfs:
                 subprocess.call(["cat", "artifact_info"])
                 raise
 
-    @pytest.mark.not_with_mender_feature("mender-convert")
     @pytest.mark.only_with_image("ext4", "ext3", "ext2")
     @pytest.mark.min_mender_version("2.5.0")
     def test_expected_files_ext234_mender_shell(
-        self, bitbake_path, bitbake_variables, latest_rootfs
+        self, conversion, bitbake_path, bitbake_variables, latest_rootfs
     ):
         """Test mender-shell expected files"""
+
+        # Expect to be installed for Yocto and not for mender-convert
+        expect_installed = not conversion
 
         with make_tempdir() as tmpdir:
             # Check whether mender-shell exists in /usr/bin
             output = subprocess.check_output(
                 ["debugfs", "-R", "ls -l -p /usr/bin", latest_rootfs], cwd=tmpdir
             ).decode()
-            assert any(
+            binary_found = any(
                 [
                     line.split("/")[5] == "mender-shell"
                     for line in output.split("\n")
                     if len(line) > 0
                 ]
             )
-
-            # Check whether mender-shell.conf has the correct contents
-            subprocess.check_call(
-                [
-                    "debugfs",
-                    "-R",
-                    "dump -p /etc/mender/mender-shell.conf mender-shell.conf",
-                    latest_rootfs,
-                ],
-                cwd=tmpdir,
+            assert (
+                expect_installed
+                and binary_found
+                or (not expect_installed and not binary_found)
             )
-            with open(os.path.join(tmpdir, "mender-shell.conf")) as fd:
-                mender_shell_vars = json.load(fd)
-            assert len(mender_shell_vars) == 1, mender_shell_vars
-            assert "ServerURL" in mender_shell_vars, mender_shell_vars
+
+            # Check whether mender-shell.conf exists in /etc/mender
+            output = subprocess.check_output(
+                ["debugfs", "-R", "ls -l -p /etc/mender", latest_rootfs], cwd=tmpdir
+            ).decode()
+            conf_found = any(
+                [
+                    line.split("/")[5] == "mender-shell.conf"
+                    for line in output.split("\n")
+                    if len(line) > 0
+                ]
+            )
+            assert (
+                expect_installed
+                and conf_found
+                or (not expect_installed and not conf_found)
+            )
+
+            # Check mender-shell.conf contents
+            if expect_installed:
+                subprocess.check_call(
+                    [
+                        "debugfs",
+                        "-R",
+                        "dump -p /etc/mender/mender-shell.conf mender-shell.conf",
+                        latest_rootfs,
+                    ],
+                    cwd=tmpdir,
+                )
+                with open(os.path.join(tmpdir, "mender-shell.conf")) as fd:
+                    mender_shell_vars = json.load(fd)
+                assert len(mender_shell_vars) == 2, mender_shell_vars
+                assert "ServerURL" in mender_shell_vars, mender_shell_vars
+                assert "User" in mender_shell_vars, mender_shell_vars
 
     @pytest.mark.only_with_image("ubifs")
     @pytest.mark.min_mender_version("1.2.0")
