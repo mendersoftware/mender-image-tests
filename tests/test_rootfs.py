@@ -143,22 +143,22 @@ class TestRootfs:
 
     @pytest.mark.only_with_image("ext4", "ext3", "ext2")
     @pytest.mark.min_mender_version("2.5.0")
-    def test_expected_files_ext234_mender_shell(
+    def test_expected_files_ext234_mender_connect(
         self, conversion, bitbake_path, bitbake_variables, latest_rootfs
     ):
-        """Test mender-shell expected files"""
+        """Test mender-connect expected files"""
 
         # Expect to be installed for Yocto and not for mender-convert
         expect_installed = not conversion
 
         with make_tempdir() as tmpdir:
-            # Check whether mender-shell exists in /usr/bin
+            # Check whether mender-connect exists in /usr/bin
             output = subprocess.check_output(
                 ["debugfs", "-R", "ls -l -p /usr/bin", latest_rootfs], cwd=tmpdir
             ).decode()
             binary_found = any(
                 [
-                    line.split("/")[5] == "mender-shell"
+                    line.split("/")[5] == "mender-connect"
                     for line in output.split("\n")
                     if len(line) > 0
                 ]
@@ -169,13 +169,13 @@ class TestRootfs:
                 or (not expect_installed and not binary_found)
             )
 
-            # Check whether mender-shell.conf exists in /etc/mender
+            # Check whether mender-connect.conf exists in /etc/mender
             output = subprocess.check_output(
                 ["debugfs", "-R", "ls -l -p /etc/mender", latest_rootfs], cwd=tmpdir
             ).decode()
             conf_found = any(
                 [
-                    line.split("/")[5] == "mender-shell.conf"
+                    line.split("/")[5] == "mender-connect.conf"
                     for line in output.split("\n")
                     if len(line) > 0
                 ]
@@ -186,22 +186,22 @@ class TestRootfs:
                 or (not expect_installed and not conf_found)
             )
 
-            # Check mender-shell.conf contents
+            # Check mender-connect.conf contents
             if expect_installed:
                 subprocess.check_call(
                     [
                         "debugfs",
                         "-R",
-                        "dump -p /etc/mender/mender-shell.conf mender-shell.conf",
+                        "dump -p /etc/mender/mender-connect.conf mender-connect.conf",
                         latest_rootfs,
                     ],
                     cwd=tmpdir,
                 )
-                with open(os.path.join(tmpdir, "mender-shell.conf")) as fd:
-                    mender_shell_vars = json.load(fd)
-                assert len(mender_shell_vars) == 2, mender_shell_vars
-                assert "ServerURL" in mender_shell_vars, mender_shell_vars
-                assert "User" in mender_shell_vars, mender_shell_vars
+                with open(os.path.join(tmpdir, "mender-connect.conf")) as fd:
+                    mender_connect_vars = json.load(fd)
+                assert len(mender_connect_vars) == 2, mender_connect_vars
+                assert "ServerURL" in mender_connect_vars, mender_connect_vars
+                assert "User" in mender_connect_vars, mender_connect_vars
 
     @pytest.mark.only_with_image("ubifs")
     @pytest.mark.min_mender_version("1.2.0")
