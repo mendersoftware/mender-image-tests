@@ -201,7 +201,7 @@ class TestRootfs:
                     mender_connect_vars = json.load(fd)
                 assert len(mender_connect_vars) == 3, mender_connect_vars
                 assert "ServerURL" in mender_connect_vars, mender_connect_vars
-                assert "Shell" in mender_connect_vars, mender_connect_vars
+                assert "ShellCommand" in mender_connect_vars, mender_connect_vars
                 assert "User" in mender_connect_vars, mender_connect_vars
 
     @pytest.mark.only_with_image("ubifs")
