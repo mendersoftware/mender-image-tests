@@ -54,6 +54,30 @@ class TestRootfs:
             )
             occurred[cols[1]] = True
 
+    @staticmethod
+    def verify_file_exists(tmpdir, rootfs, path, filename, expect_to_exist=True):
+        output = subprocess.check_output(
+            ["debugfs", "-R", f"ls -l -p {path}", rootfs], cwd=tmpdir
+        ).decode()
+        file_found = any(
+            [
+                line.split("/")[5] == filename
+                for line in output.split("\n")
+                if len(line) > 0
+            ]
+        )
+        assert (expect_to_exist and file_found) or (
+            not expect_to_exist and not file_found
+        )
+
+    @staticmethod
+    def verify_file_executable(tmpdir, rootfs, path, filename):
+        subprocess.check_call(
+            ["debugfs", "-R", f"dump -p {path}/{filename} {filename}", rootfs,],
+            cwd=tmpdir,
+        )
+        assert os.access(os.path.join(tmpdir, filename), os.X_OK)
+
     @pytest.mark.only_with_image("ext4", "ext3", "ext2")
     @pytest.mark.min_mender_version("2.5.0")
     def test_expected_files_ext234(
@@ -106,33 +130,30 @@ class TestRootfs:
                     )
 
                 # Check whether mender exists in /usr/bin
-                output = subprocess.check_output(
-                    ["debugfs", "-R", "ls -l -p /usr/bin", latest_rootfs], cwd=tmpdir
-                ).decode()
-                assert any(
-                    [
-                        line.split("/")[5] == "mender"
-                        for line in output.split("\n")
-                        if len(line) > 0
-                    ]
+                self.verify_file_exists(
+                    tmpdir, latest_rootfs, "/usr/bin", "mender", True
                 )
 
-                # Check whether DBus files exist
+                # Check whether mender exists in /var/lib
+                self.verify_file_exists(
+                    tmpdir, latest_rootfs, "/var/lib", "mender", True,
+                )
+
+                # Check contents of /var/lib/mender
                 output = subprocess.check_output(
-                    [
-                        "debugfs",
-                        "-R",
-                        "ls -l -p /usr/share/dbus-1/system.d",
-                        latest_rootfs,
-                    ],
+                    ["debugfs", "-R", "stat /var/lib/mender", latest_rootfs],
                     cwd=tmpdir,
                 ).decode()
-                assert any(
-                    [
-                        line.split("/")[5] == "io.mender.AuthenticationManager.conf"
-                        for line in output.split("\n")
-                        if len(line) > 0
-                    ]
+                assert "Type: symlink" in output
+                assert 'Fast link dest: "/data/mender"' in output
+
+                # Check whether DBus files exist
+                self.verify_file_exists(
+                    tmpdir,
+                    latest_rootfs,
+                    "/usr/share/dbus-1/system.d",
+                    "io.mender.AuthenticationManager.conf",
+                    True,
                 )
 
             except:
@@ -153,37 +174,17 @@ class TestRootfs:
 
         with make_tempdir() as tmpdir:
             # Check whether mender-connect exists in /usr/bin
-            output = subprocess.check_output(
-                ["debugfs", "-R", "ls -l -p /usr/bin", latest_rootfs], cwd=tmpdir
-            ).decode()
-            binary_found = any(
-                [
-                    line.split("/")[5] == "mender-connect"
-                    for line in output.split("\n")
-                    if len(line) > 0
-                ]
-            )
-            assert (
-                expect_installed
-                and binary_found
-                or (not expect_installed and not binary_found)
+            self.verify_file_exists(
+                tmpdir, latest_rootfs, "/usr/bin", "mender-connect", expect_installed
             )
 
             # Check whether mender-connect.conf exists in /etc/mender
-            output = subprocess.check_output(
-                ["debugfs", "-R", "ls -l -p /etc/mender", latest_rootfs], cwd=tmpdir
-            ).decode()
-            conf_found = any(
-                [
-                    line.split("/")[5] == "mender-connect.conf"
-                    for line in output.split("\n")
-                    if len(line) > 0
-                ]
-            )
-            assert (
-                expect_installed
-                and conf_found
-                or (not expect_installed and not conf_found)
+            self.verify_file_exists(
+                tmpdir,
+                latest_rootfs,
+                "/etc/mender",
+                "mender-connect.conf",
+                expect_installed,
             )
 
             # Check mender-connect.conf contents
@@ -203,6 +204,69 @@ class TestRootfs:
                 assert "ServerURL" in mender_connect_vars, mender_connect_vars
                 assert "ShellCommand" in mender_connect_vars, mender_connect_vars
                 assert "User" in mender_connect_vars, mender_connect_vars
+
+    @pytest.mark.only_with_image("ext4", "ext3", "ext2")
+    @pytest.mark.min_mender_version("2.6.0")
+    def test_expected_files_ext234_mender_configure(
+        self, conversion, bitbake_path, bitbake_variables, latest_rootfs
+    ):
+        """Test mender-configure expected files"""
+
+        # Expect to be installed for Yocto and not for mender-convert
+        expect_installed = not conversion
+
+        with make_tempdir() as tmpdir:
+
+            # Check whether mender-configure exists in /usr/share/mender/modules/v3
+            self.verify_file_exists(
+                tmpdir,
+                latest_rootfs,
+                "/usr/share/mender/modules/v3",
+                "mender-configure",
+                expect_installed,
+            )
+
+            # Check whether mender-configure is executable
+            if expect_installed:
+                self.verify_file_executable(
+                    tmpdir,
+                    latest_rootfs,
+                    "/usr/share/mender/modules/v3",
+                    "mender-configure",
+                )
+
+            # Check whether mender-inventory-mender-configure exists in /usr/share/mender/inventory
+            self.verify_file_exists(
+                tmpdir,
+                latest_rootfs,
+                "/usr/share/mender/inventory",
+                "mender-inventory-mender-configure",
+                expect_installed,
+            )
+
+            # Check whether mender-inventory-mender-configure is executable
+            if expect_installed:
+                self.verify_file_executable(
+                    tmpdir,
+                    latest_rootfs,
+                    "/usr/share/mender/inventory",
+                    "mender-inventory-mender-configure",
+                )
+
+            # Check whether mender-configure exists in /var/lib
+            self.verify_file_exists(
+                tmpdir, latest_rootfs, "/var/lib", "mender-configure", expect_installed,
+            )
+
+            # Check contents of /var/lib/mender-configure
+            if expect_installed:
+
+                output = subprocess.check_output(
+                    ["debugfs", "-R", "stat /var/lib/mender-configure", latest_rootfs],
+                    cwd=tmpdir,
+                ).decode()
+                assert "Type: symlink" in output
+                assert 'Fast link dest: "/data/mender-configure"' in output
 
     @pytest.mark.only_with_image("ubifs")
     @pytest.mark.min_mender_version("1.2.0")

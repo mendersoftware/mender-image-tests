@@ -379,6 +379,38 @@ class TestMostPartitionImages:
                 os.fchdir(old_cwd_fd)
                 os.close(old_cwd_fd)
 
+    @pytest.mark.min_mender_version("2.6.0")
+    def test_expected_data_dirs(
+        self, conversion, bitbake_path, bitbake_variables, latest_part_image
+    ):
+        with make_tempdir() as tmpdir:
+            old_cwd_fd = os.open(".", os.O_RDONLY)
+            os.chdir(tmpdir)
+            try:
+                data_part_number = get_data_part_number(latest_part_image)
+
+                extract_partition(latest_part_image, data_part_number)
+
+                output = subprocess.check_output(
+                    ["debugfs", "-R", "ls -l -p /", f"img{data_part_number}.fs"]
+                ).decode()
+                nodes = [
+                    line.split("/")[5] for line in output.split("\n") if len(line) > 0
+                ]
+
+                # Expect /data/mender to exist always
+                assert "mender" in nodes
+
+                # Expect addons to be installed for Yocto and not for mender-convert
+                if not conversion:
+                    assert "mender-configure" in nodes
+                else:
+                    assert "mender-configure" not in nodes
+
+            finally:
+                os.fchdir(old_cwd_fd)
+                os.close(old_cwd_fd)
+
 
 @pytest.mark.only_with_image("sdimg", "uefiimg", "biosimg", "gptimg")
 @pytest.mark.min_mender_version("1.0.0")
