@@ -134,6 +134,19 @@ class TestRootfs:
                     tmpdir, latest_rootfs, "/usr/bin", "mender", True
                 )
 
+                # Check whether mender exists in /var/lib
+                self.verify_file_exists(
+                    tmpdir, latest_rootfs, "/var/lib", "mender", True,
+                )
+
+                # Check contents of /var/lib/mender
+                output = subprocess.check_output(
+                    ["debugfs", "-R", "stat /var/lib/mender", latest_rootfs],
+                    cwd=tmpdir,
+                ).decode()
+                assert "Type: symlink" in output
+                assert 'Fast link dest: "/data/mender"' in output
+
                 # Check whether DBus files exist
                 self.verify_file_exists(
                     tmpdir,
@@ -244,6 +257,16 @@ class TestRootfs:
             self.verify_file_exists(
                 tmpdir, latest_rootfs, "/var/lib", "mender-configure", expect_installed,
             )
+
+            # Check contents of /var/lib/mender-configure
+            if expect_installed:
+
+                output = subprocess.check_output(
+                    ["debugfs", "-R", "stat /var/lib/mender-configure", latest_rootfs],
+                    cwd=tmpdir,
+                ).decode()
+                assert "Type: symlink" in output
+                assert 'Fast link dest: "/data/mender-configure"' in output
 
     @pytest.mark.only_with_image("ubifs")
     @pytest.mark.min_mender_version("1.2.0")
