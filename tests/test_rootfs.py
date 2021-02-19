@@ -142,7 +142,7 @@ class TestRootfs:
                 raise
 
     @pytest.mark.only_with_image("ext4", "ext3", "ext2")
-    @pytest.mark.min_mender_version("2.5.0")
+    @pytest.mark.min_mender_version("2.5.1")
     def test_expected_files_ext234_mender_connect(
         self, conversion, bitbake_path, bitbake_variables, latest_rootfs
     ):
@@ -199,8 +199,7 @@ class TestRootfs:
                 )
                 with open(os.path.join(tmpdir, "mender-connect.conf")) as fd:
                     mender_connect_vars = json.load(fd)
-                assert len(mender_connect_vars) == 3, mender_connect_vars
-                assert "ServerURL" in mender_connect_vars, mender_connect_vars
+                assert len(mender_connect_vars) == 2, mender_connect_vars
                 assert "ShellCommand" in mender_connect_vars, mender_connect_vars
                 assert "User" in mender_connect_vars, mender_connect_vars
 
