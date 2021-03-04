@@ -421,15 +421,18 @@ class TestAllPartitionImages:
     ):
         bufsize = 1048576  # 1MiB
         if b".xz" in subprocess.check_output(["tar", "tf", latest_mender_image]):
-            zext = "xz"
+            zext = ".xz"
             ztar = "J"
-        else:
-            zext = "gz"
+        elif b".gz" in subprocess.check_output(["tar", "tf", latest_mender_image]):
+            zext = ".gz"
             ztar = "z"
+        else:
+            zext = ""
+            ztar = ""
 
         with tempfile.NamedTemporaryFile() as tmp_artifact:
             subprocess.check_call(
-                "tar xOf %s data/0000.tar.%s | tar x%sO > %s"
+                "tar xOf %s data/0000.tar%s | tar x%sO > %s"
                 % (latest_mender_image, zext, ztar, tmp_artifact.name),
                 shell=True,
             )
