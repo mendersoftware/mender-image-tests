@@ -245,7 +245,7 @@ class TestMostPartitionImages:
 
         except:
             subprocess.call(["ls", "-l", "device_type"])
-            print("Contents of artifact_info:")
+            print("Contents of device_type:")
             subprocess.call(["cat", "device_type"])
             raise
 
