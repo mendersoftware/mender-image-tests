@@ -24,20 +24,6 @@ from utils.common import make_tempdir
 
 class TestRootfs:
     @staticmethod
-    def verify_artifact_info_data(data, artifact_name):
-        lines = data.split()
-        assert len(lines) == 1
-        line = lines[0]
-        line = line.rstrip("\n\r")
-        var = line.split("=", 2)
-        assert len(var) == 2
-
-        var = [entry.strip() for entry in var]
-
-        assert var[0] == "artifact_name"
-        assert var[1] == artifact_name
-
-    @staticmethod
     def verify_fstab(data):
         lines = data.split("\n")
 
@@ -86,81 +72,50 @@ class TestRootfs:
         """Test mender client expected files"""
 
         with make_tempdir() as tmpdir:
-            try:
-                subprocess.check_call(
-                    [
-                        "debugfs",
-                        "-R",
-                        "dump -p /etc/mender/artifact_info artifact_info",
-                        latest_rootfs,
-                    ],
-                    cwd=tmpdir,
-                )
-                with open(os.path.join(tmpdir, "artifact_info")) as fd:
-                    data = fd.read()
-                TestRootfs.verify_artifact_info_data(
-                    data, bitbake_variables["MENDER_ARTIFACT_NAME"]
-                )
-                assert (
-                    os.stat(os.path.join(tmpdir, "artifact_info")).st_mode & 0o777
-                    == 0o644
-                )
+            subprocess.check_call(
+                ["debugfs", "-R", "dump -p /etc/fstab fstab", latest_rootfs],
+                cwd=tmpdir,
+            )
+            with open(os.path.join(tmpdir, "fstab")) as fd:
+                data = fd.read()
+            TestRootfs.verify_fstab(data)
 
-                subprocess.check_call(
-                    ["debugfs", "-R", "dump -p /etc/fstab fstab", latest_rootfs],
-                    cwd=tmpdir,
-                )
-                with open(os.path.join(tmpdir, "fstab")) as fd:
-                    data = fd.read()
-                TestRootfs.verify_fstab(data)
+            output = subprocess.check_output(
+                ["debugfs", "-R", "ls -l -p /data", latest_rootfs], cwd=tmpdir
+            ).decode()
+            for line in output.split("\n"):
+                splitted = line.split("/")
+                if len(splitted) <= 1:
+                    continue
+                # Should only contain "." and "..". In addition, debugfs
+                # sometimes, but not always, returns a strange 0 entry, with
+                # no name, but a "0" in the sixth column. It is not present
+                # when mounting the filesystem.
+                assert splitted[5] == "." or splitted[5] == ".." or splitted[6] == "0"
 
-                output = subprocess.check_output(
-                    ["debugfs", "-R", "ls -l -p /data", latest_rootfs], cwd=tmpdir
-                ).decode()
-                for line in output.split("\n"):
-                    splitted = line.split("/")
-                    if len(splitted) <= 1:
-                        continue
-                    # Should only contain "." and "..". In addition, debugfs
-                    # sometimes, but not always, returns a strange 0 entry, with
-                    # no name, but a "0" in the sixth column. It is not present
-                    # when mounting the filesystem.
-                    assert (
-                        splitted[5] == "." or splitted[5] == ".." or splitted[6] == "0"
-                    )
+            # Check whether mender exists in /usr/bin
+            self.verify_file_exists(tmpdir, latest_rootfs, "/usr/bin", "mender", True)
 
-                # Check whether mender exists in /usr/bin
-                self.verify_file_exists(
-                    tmpdir, latest_rootfs, "/usr/bin", "mender", True
-                )
+            # Check whether mender exists in /var/lib
+            self.verify_file_exists(
+                tmpdir, latest_rootfs, "/var/lib", "mender", True,
+            )
 
-                # Check whether mender exists in /var/lib
-                self.verify_file_exists(
-                    tmpdir, latest_rootfs, "/var/lib", "mender", True,
-                )
+            # Check contents of /var/lib/mender
+            output = subprocess.check_output(
+                ["debugfs", "-R", "stat /var/lib/mender", latest_rootfs], cwd=tmpdir,
+            ).decode()
+            assert "Type: symlink" in output
+            assert 'Fast link dest: "/data/mender"' in output
 
-                # Check contents of /var/lib/mender
-                output = subprocess.check_output(
-                    ["debugfs", "-R", "stat /var/lib/mender", latest_rootfs],
-                    cwd=tmpdir,
-                ).decode()
-                assert "Type: symlink" in output
-                assert 'Fast link dest: "/data/mender"' in output
-
-                # Check whether DBus files exist
-                self.verify_file_exists(
-                    tmpdir,
-                    latest_rootfs,
-                    "/usr/share/dbus-1/system.d",
-                    "io.mender.AuthenticationManager.conf",
-                    True,
-                )
-
-            except:
-                subprocess.call(["ls", "-l", "artifact_info"])
-                print("Contents of artifact_info:")
-                subprocess.call(["cat", "artifact_info"])
-                raise
+            # Check whether DBus files exist
+            self.verify_file_exists(
+                tmpdir,
+                latest_rootfs,
+                "/usr/share/dbus-1/system.d",
+                "io.mender.AuthenticationManager.conf",
+                True,
+            )
 
     @pytest.mark.only_with_image("ext4", "ext3", "ext2")
     @pytest.mark.min_mender_version("2.5.1")
@@ -280,13 +235,6 @@ class TestRootfs:
                     outdir=tmpdir, ubifs=latest_ubifs
                 ),
                 shell=True,
-            )
-
-            path = os.path.join(tmpdir, "etc/mender/artifact_info")
-            with open(path) as fd:
-                data = fd.read()
-            TestRootfs.verify_artifact_info_data(
-                data, bitbake_variables["MENDER_ARTIFACT_NAME"]
             )
 
             path = os.path.join(tmpdir, "etc/fstab")
