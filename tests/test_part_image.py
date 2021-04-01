@@ -401,11 +401,11 @@ class TestMostPartitionImages:
                 # Expect /data/mender to exist always
                 assert "mender" in nodes
 
+                # Independently from mender-configure's installation status, we create the
+                # symlink for /var/lib/mender-configure to the data partition for mender-convert
+                # to support the subsequent installation of the add-on by the user
                 # Expect addons to be installed for Yocto and not for mender-convert
-                if not conversion:
-                    assert "mender-configure" in nodes
-                else:
-                    assert "mender-configure" not in nodes
+                assert "mender-configure" in nodes
 
             finally:
                 os.fchdir(old_cwd_fd)
