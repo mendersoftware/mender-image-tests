@@ -207,20 +207,22 @@ class TestRootfs:
                     "mender-inventory-mender-configure",
                 )
 
+            # Independently from mender-configure's installation status, we create the
+            # symlink for /var/lib/mender-configure to the data partition for mender-convert
+            # to support the subsequent installation of the add-on by the user
+
             # Check whether mender-configure exists in /var/lib
             self.verify_file_exists(
-                tmpdir, latest_rootfs, "/var/lib", "mender-configure", expect_installed,
+                tmpdir, latest_rootfs, "/var/lib", "mender-configure",
             )
 
             # Check contents of /var/lib/mender-configure
-            if expect_installed:
-
-                output = subprocess.check_output(
-                    ["debugfs", "-R", "stat /var/lib/mender-configure", latest_rootfs],
-                    cwd=tmpdir,
-                ).decode()
-                assert "Type: symlink" in output
-                assert 'Fast link dest: "/data/mender-configure"' in output
+            output = subprocess.check_output(
+                ["debugfs", "-R", "stat /var/lib/mender-configure", latest_rootfs],
+                cwd=tmpdir,
+            ).decode()
+            assert "Type: symlink" in output
+            assert 'Fast link dest: "/data/mender-configure"' in output
 
     @pytest.mark.only_with_image("ubifs")
     @pytest.mark.min_mender_version("1.2.0")
