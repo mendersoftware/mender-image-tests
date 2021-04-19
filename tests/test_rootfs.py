@@ -166,8 +166,12 @@ class TestRootfs:
     ):
         """Test mender-configure expected files"""
 
-        # Expect to be installed for Yocto and not for mender-convert
-        expect_installed = not conversion
+        # Expect files to always be installed with our Yocto test images, and on
+        # mender-convert if enabled.
+        if not conversion or bitbake_variables.get("MENDER_ADDON_CONFIGURE_INSTALL", "n") == "y":
+            expect_installed = True
+        else:
+            expect_installed = False
 
         with make_tempdir() as tmpdir:
 
