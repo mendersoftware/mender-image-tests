@@ -74,3 +74,84 @@ class TestUpdateModules:
 
         finally:
             shutil.rmtree(file_tree)
+
+    @pytest.mark.min_mender_version("2.0.0")
+    def test_single_file_update_module(self, bitbake_variables, connection):
+        """Test the single-file update module, first with a successfull update,
+        then installing and rolling back another one"""
+
+        file_tree = tempfile.mkdtemp()
+        try:
+            update_file = os.path.join(file_tree, "my-file")
+            artifact_file = os.path.join(file_tree, "update.mender")
+
+            # Create and send first update
+            with open(update_file, "w") as fd:
+                fd.write("my-initial-content")
+            os.chmod(update_file, 0o777)
+            cmd = (
+                "single-file-artifact-gen -o %s -n update-file-v1 -t %s -d /tmp/some/new/path %s"
+                % (artifact_file, bitbake_variables["MACHINE"], update_file)
+            )
+            subprocess.check_call(cmd, shell=True)
+            put_no_sftp(artifact_file, connection, remote="/var/tmp/update.mender")
+
+            # Install the update
+            original = connection.run("mender --no-syslog show-artifact").stdout.strip()
+            result = connection.run("mender install /var/tmp/update.mender")
+            output = connection.run("mender --no-syslog show-artifact").stdout.strip()
+            assert output == original
+
+            # Check file
+            output = connection.run("cat /tmp/some/new/path/my-file").stdout.strip()
+            assert output == "my-initial-content"
+            output = connection.run(
+                "stat -c %a /tmp/some/new/path/my-file"
+            ).stdout.strip()
+            assert output == "777"
+
+            # Commit
+            connection.run("mender commit")
+            output = connection.run("mender --no-syslog show-artifact").stdout.strip()
+            assert output == "update-file-v1"
+
+            # Create and send a second update
+            with open(update_file, "w") as fd:
+                fd.write("my-new-content")
+            os.chmod(update_file, 0o600)
+            cmd = (
+                "single-file-artifact-gen -o %s -n update-file-v2 -t %s -d /tmp/some/new/path %s"
+                % (artifact_file, bitbake_variables["MACHINE"], update_file)
+            )
+            subprocess.check_call(cmd, shell=True)
+            put_no_sftp(artifact_file, connection, remote="/var/tmp/update.mender")
+
+            # Install the update
+            original = connection.run("mender --no-syslog show-artifact").stdout.strip()
+            result = connection.run("mender install /var/tmp/update.mender")
+            output = connection.run("mender --no-syslog show-artifact").stdout.strip()
+            assert output == "update-file-v1"
+
+            # Check file
+            output = connection.run("cat /tmp/some/new/path/my-file").stdout.strip()
+            assert output == "my-new-content"
+            output = connection.run(
+                "stat -c %a /tmp/some/new/path/my-file"
+            ).stdout.strip()
+            assert output == "600"
+
+            # Rollback
+            connection.run("mender rollback")
+            output = connection.run("mender --no-syslog show-artifact").stdout.strip()
+            assert output == "update-file-v1"
+
+            # Check file
+            output = connection.run("cat /tmp/some/new/path/my-file").stdout.strip()
+            assert output == "my-initial-content"
+            output = connection.run(
+                "stat -c %a /tmp/some/new/path/my-file"
+            ).stdout.strip()
+            assert output == "777"
+
+        finally:
+            shutil.rmtree(file_tree)
