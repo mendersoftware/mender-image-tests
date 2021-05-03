@@ -58,7 +58,13 @@ def config_host(host):
 
 def connection_factory(request, user, host, ssh_priv_key):
     host, port = config_host(host)
-    connect_kwargs = {"password": "", "banner_timeout": 60, "auth_timeout": 60}
+    connect_kwargs = {
+        "password": "",
+        "banner_timeout": 60,
+        "auth_timeout": 60,
+        "look_for_keys": False,
+        "allow_agent": False,
+    }
     if ssh_priv_key != "":
         connect_kwargs["key_filename"] = ssh_priv_key
     conn = Connection(
