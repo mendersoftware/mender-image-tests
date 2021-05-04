@@ -24,6 +24,7 @@ import pytest
 from utils.common import put_no_sftp
 
 
+@pytest.mark.min_yocto_version("kirkstone")
 @pytest.mark.usefixtures("setup_board", "bitbake_path")
 class TestUpdateModules:
     @pytest.mark.min_mender_version("2.0.0")
