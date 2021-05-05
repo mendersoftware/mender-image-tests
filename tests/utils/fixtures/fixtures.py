@@ -508,6 +508,9 @@ def min_yocto_version(request, bitbake_variables):
         "zeus",
         "dunfell",
         "gatesgarth",
+        "hardknott",
+        "honister",
+        "kirkstone",
         # Keep this at the bottom.
         "master",
     ]
