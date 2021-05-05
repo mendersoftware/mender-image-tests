@@ -43,7 +43,7 @@ class TestUpdateModules:
             artifact_file = os.path.join(file_tree, "update.mender")
             cmd = (
                 "directory-artifact-gen -o %s -n update-directory -t %s -d /tmp/test_directory_update_module %s"
-                % (artifact_file, bitbake_variables["MACHINE"], file_tree)
+                % (artifact_file, bitbake_variables["MENDER_DEVICE_TYPE"], file_tree)
             )
             subprocess.check_call(cmd, shell=True)
             put_no_sftp(artifact_file, connection, remote="/var/tmp/update.mender")
@@ -84,7 +84,7 @@ class TestUpdateModules:
             artifact_file = os.path.join(file_tree, "update.mender")
             cmd = (
                 "directory-artifact-gen -o %s -n update-directory-new-files -t %s -d /tmp/test_directory_update_module %s"
-                % (artifact_file, bitbake_variables["MACHINE"], file_tree)
+                % (artifact_file, bitbake_variables["MENDER_DEVICE_TYPE"], file_tree)
             )
             subprocess.check_call(cmd, shell=True)
             put_no_sftp(artifact_file, connection, remote="/var/tmp/update.mender")
@@ -140,7 +140,7 @@ class TestUpdateModules:
             os.chmod(update_file, 0o777)
             cmd = (
                 "single-file-artifact-gen -o %s -n update-file-v1 -t %s -d /tmp/some/new/path %s"
-                % (artifact_file, bitbake_variables["MACHINE"], update_file)
+                % (artifact_file, bitbake_variables["MENDER_DEVICE_TYPE"], update_file)
             )
             subprocess.check_call(cmd, shell=True)
             put_no_sftp(artifact_file, connection, remote="/var/tmp/update.mender")
@@ -170,7 +170,7 @@ class TestUpdateModules:
             os.chmod(update_file, 0o600)
             cmd = (
                 "single-file-artifact-gen -o %s -n update-file-v2 -t %s -d /tmp/some/new/path %s"
-                % (artifact_file, bitbake_variables["MACHINE"], update_file)
+                % (artifact_file, bitbake_variables["MENDER_DEVICE_TYPE"], update_file)
             )
             subprocess.check_call(cmd, shell=True)
             put_no_sftp(artifact_file, connection, remote="/var/tmp/update.mender")
