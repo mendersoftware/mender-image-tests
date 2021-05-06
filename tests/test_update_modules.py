@@ -124,7 +124,7 @@ class TestUpdateModules:
         finally:
             shutil.rmtree(file_tree)
 
-    @pytest.mark.min_mender_version("2.0.0")
+    @pytest.mark.min_mender_version("2.7.0")
     def test_single_file_update_module(self, bitbake_variables, connection):
         """Test the single-file update module, first with a successfull update,
         then installing and rolling back another one"""
