@@ -98,7 +98,7 @@ def pytest_addoption(parser):
 def pytest_configure(config):
     #
     # Register the plugins markers as per
-    # https://pytest.org/en/latest/writing_plugins.html#registering-custom-markers
+    # https://pytest.org/en/latest/how-to/writing_plugins.html#registering-custom-markers
     #
     config.addinivalue_line(
         "markers",
