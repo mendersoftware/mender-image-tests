@@ -25,11 +25,12 @@ from invoke import UnexpectedExit
 import pytest
 
 from utils.common import (
+    bootenv_tools,
+    determine_active_passive_part,
+    get_no_sftp,
+    put_no_sftp,
     reboot,
     run_after_connect,
-    determine_active_passive_part,
-    put_no_sftp,
-    get_no_sftp,
     signing_key,
 )
 from utils.helpers import Helpers
@@ -189,13 +190,15 @@ class TestUpdates:
             s3_address,
         )
 
-        output = connection.run("fw_printenv bootcount").stdout
+        bootenv_print, _ = bootenv_tools(connection)
+
+        output = connection.run(f"{bootenv_print} bootcount").stdout
         assert output.rstrip("\n") == "bootcount=0"
 
-        output = connection.run("fw_printenv upgrade_available").stdout
+        output = connection.run(f"{bootenv_print} upgrade_available").stdout
         assert output.rstrip("\n") == "upgrade_available=1"
 
-        output = connection.run("fw_printenv mender_boot_part").stdout
+        output = connection.run(f"{bootenv_print} mender_boot_part").stdout
         assert output.rstrip("\n") == "mender_boot_part=" + passive_before[-1:]
 
         # Delete kernel and associated files from currently running partition,
@@ -214,21 +217,21 @@ class TestUpdates:
         assert active_after == passive_before
         assert passive_after == active_before
 
-        output = connection.run("fw_printenv bootcount").stdout
+        output = connection.run(f"{bootenv_print} bootcount").stdout
         assert output.rstrip("\n") == "bootcount=1"
 
-        output = connection.run("fw_printenv upgrade_available").stdout
+        output = connection.run(f"{bootenv_print} upgrade_available").stdout
         assert output.rstrip("\n") == "upgrade_available=1"
 
-        output = connection.run("fw_printenv mender_boot_part").stdout
+        output = connection.run(f"{bootenv_print} mender_boot_part").stdout
         assert output.rstrip("\n") == "mender_boot_part=" + active_after[-1:]
 
         connection.run("mender commit")
 
-        output = connection.run("fw_printenv upgrade_available").stdout
+        output = connection.run(f"{bootenv_print} upgrade_available").stdout
         assert output.rstrip("\n") == "upgrade_available=0"
 
-        output = connection.run("fw_printenv mender_boot_part").stdout
+        output = connection.run(f"{bootenv_print} mender_boot_part").stdout
         assert output.rstrip("\n") == "mender_boot_part=" + active_after[-1:]
 
         active_before = active_after
@@ -762,9 +765,10 @@ class TestUpdates:
 
         finally:
             # Reset environment to what it was.
-            connection.run("fw_setenv mender_boot_part %s" % active[-1:])
-            connection.run("fw_setenv mender_boot_part_hex %x" % int(active[-1:]))
-            connection.run("fw_setenv upgrade_available 0")
+            _, bootenv_set = bootenv_tools(connection)
+            connection.run(f"{bootenv_set} mender_boot_part %s" % active[-1:])
+            connection.run(f"{bootenv_set} mender_boot_part_hex %x" % int(active[-1:]))
+            connection.run(f"{bootenv_set} upgrade_available 0")
             if device_has_mender_conf:
                 connection.run(
                     "cp -L /data/etc/mender/mender.conf.bak $(realpath /etc/mender/mender.conf)"
@@ -883,17 +887,19 @@ class TestUpdates:
                 )
 
             try:
+                bootenv_print, bootenv_set = bootenv_tools(connection)
+
                 # Try to manually remove the canary first.
-                connection.run("fw_setenv mender_saveenv_canary")
+                connection.run(f"{bootenv_set} mender_saveenv_canary")
                 result = connection.run(
                     "mender install /var/tmp/image.mender", warn=True
                 )
                 assert (
                     result.return_code != 0
                 ), "Update succeeded when canary was not present!"
-                output = connection.run("fw_printenv upgrade_available").stdout.rstrip(
-                    "\n"
-                )
+                output = connection.run(
+                    f"{bootenv_print} upgrade_available"
+                ).stdout.rstrip("\n")
                 # Upgrade should not have been triggered.
                 assert output == "upgrade_available=0"
 
@@ -913,7 +919,7 @@ class TestUpdates:
                 ), "Update succeeded when canary was not present!"
                 # This should just fail, since we don't provide a default
                 # environment in libubootenv (we used to for u-boot-fw-utils).
-                result = connection.run("fw_printenv upgrade_available", warn=True)
+                result = connection.run(f"{bootenv_print} upgrade_available", warn=True)
                 assert result.return_code != 0
 
             finally:
@@ -949,8 +955,11 @@ class TestUpdates:
         script_name = os.path.join(tdir, "ArtifactInstall_Leave_01")
 
         try:
+            bootenv_print, _ = bootenv_tools(connection)
 
-            original_partition = connection.run("fw_printenv mender_boot_part").stdout
+            original_partition = connection.run(
+                f"{bootenv_print} mender_boot_part"
+            ).stdout
             assert original_partition != ""
 
             with open(script_name, "w") as af:
@@ -975,13 +984,13 @@ class TestUpdates:
             # The rollback should not leave the device pending a partition
             # switch on boot
             #
-            output = connection.run("fw_printenv upgrade_available").stdout
+            output = connection.run(f"{bootenv_print} upgrade_available").stdout
             assert output.rstrip("\n") == "upgrade_available=0"
 
             #
             # Make sure the device is still on the original partition
             #
-            active = connection.run("fw_printenv mender_boot_part").stdout
+            active = connection.run(f"{bootenv_print} mender_boot_part").stdout
             assert original_partition == active
 
         finally:

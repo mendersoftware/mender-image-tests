@@ -246,8 +246,9 @@ def get_no_sftp(file, conn, local="."):
 
 
 def manual_uboot_commit(conn):
-    conn.run("fw_setenv upgrade_available 0")
-    conn.run("fw_setenv bootcount 0")
+    _, bootenv_set = bootenv_tools(conn)
+    conn.run(f"{bootenv_set} upgrade_available 0")
+    conn.run(f"{bootenv_set} bootcount 0")
 
 
 def latest_build_artifact(request, builddir, extension, sdimg_location=None):
@@ -584,3 +585,13 @@ MENDER_STATE_FILES = (
 
 def cleanup_mender_state(connection):
     connection.run("rm -f %s" % " ".join(MENDER_STATE_FILES))
+
+
+def bootenv_tools(connection):
+    """Returns a tuple containing the print and set tools of the current bootloader."""
+
+    result = connection.run("test -x /usr/bin/grub-mender-grubenv-print", warn=True)
+    if result.return_code == 0:
+        return ("grub-mender-grubenv-print", "grub-mender-grubenv-set")
+    else:
+        return ("fw_printenv", "fw_setenv")
