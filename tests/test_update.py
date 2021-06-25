@@ -78,7 +78,6 @@ class TestUpdates:
     def test_broken_image_update(self, bitbake_variables, connection):
 
         file_flag = Helpers.get_file_flag(bitbake_variables)
-        install_flag = Helpers.get_install_flag(connection)
         (active_before, passive_before) = determine_active_passive_part(
             bitbake_variables, connection
         )
@@ -104,7 +103,7 @@ class TestUpdates:
                 )
 
             put_no_sftp("image.mender", connection, remote="/var/tmp/image.mender")
-            connection.run("mender %s /var/tmp/image.mender" % install_flag)
+            connection.run("mender install /var/tmp/image.mender")
             reboot(connection)
 
             # Now qemu is auto-rebooted twice; once to boot the dummy image,
@@ -129,7 +128,6 @@ class TestUpdates:
     def test_too_big_image_update(self, bitbake_variables, connection):
 
         file_flag = Helpers.get_file_flag(bitbake_variables)
-        install_flag = Helpers.get_install_flag(connection)
         image_type = bitbake_variables["MENDER_DEVICE_TYPE"]
 
         try:
@@ -148,8 +146,7 @@ class TestUpdates:
                 remote="/var/tmp/image-too-big.mender",
             )
             output = connection.run(
-                "mender %s /var/tmp/image-too-big.mender ; echo 'ret_code=$?'"
-                % install_flag
+                "mender install /var/tmp/image-too-big.mender ; echo 'ret_code=$?'"
             )
 
             assert any(
@@ -226,7 +223,7 @@ class TestUpdates:
         output = connection.run("fw_printenv mender_boot_part").stdout
         assert output.rstrip("\n") == "mender_boot_part=" + active_after[-1:]
 
-        connection.run("mender -commit")
+        connection.run("mender commit")
 
         output = connection.run("fw_printenv upgrade_available").stdout
         assert output.rstrip("\n") == "upgrade_available=0"
@@ -547,7 +544,6 @@ class TestUpdates:
         present verification keys."""
 
         file_flag = Helpers.get_file_flag(bitbake_variables)
-        install_flag = Helpers.get_install_flag(connection)
 
         # mmc mount points are named: /dev/mmcblk0p1
         # ubi volumes are named: ubi0_1
@@ -717,9 +713,7 @@ class TestUpdates:
             else:
                 connection.run('echo "%s" | dd of=%s' % (old_content, passive))
 
-            result = connection.run(
-                "mender %s /data/image.mender" % install_flag, warn=True
-            )
+            result = connection.run("mender install /data/image.mender", warn=True)
 
             if sig_case.success:
                 if result.return_code != 0:
@@ -864,7 +858,6 @@ class TestUpdates:
         environment."""
 
         file_flag = Helpers.get_file_flag(bitbake_variables)
-        install_flag = Helpers.get_install_flag(connection)
         image_type = bitbake_variables["MACHINE"]
 
         try:
@@ -893,7 +886,7 @@ class TestUpdates:
                 # Try to manually remove the canary first.
                 connection.run("fw_setenv mender_saveenv_canary")
                 result = connection.run(
-                    "mender %s /var/tmp/image.mender" % install_flag, warn=True
+                    "mender install /var/tmp/image.mender", warn=True
                 )
                 assert (
                     result.return_code != 0
@@ -913,7 +906,7 @@ class TestUpdates:
                         % (entry[0], int(entry[1], 0), int(entry[2], 0))
                     )
                 result = connection.run(
-                    "mender %s /var/tmp/image.mender" % install_flag, warn=True
+                    "mender install /var/tmp/image.mender", warn=True
                 )
                 assert (
                     result.return_code != 0
