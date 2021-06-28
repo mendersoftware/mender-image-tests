@@ -96,16 +96,6 @@ class Helpers:
             return "-u"
 
     @staticmethod
-    def get_install_flag(connection):
-        output = connection.run("mender --help 2>&1", warn=True).stdout
-        if re.search(r"^\s*install(\s|$)", output, flags=re.MULTILINE):
-            return "install"
-        elif re.search(r"^\s*-install(\s|$)", output, flags=re.MULTILINE):
-            return "-install"
-        else:
-            return "-rootfs"
-
-    @staticmethod
     def install_update(image, conn, http_server, board_type, use_s3, s3_address):
         # We want `image` to be in the current directory because we use Python's
         # `http.server`. If it isn't, make a symlink, and relaunch.
@@ -124,7 +114,6 @@ class Helpers:
                 os.unlink("temp-artifact.mender")
 
         http_server_location = http_server
-        install_flag = Helpers.get_install_flag(conn)
 
         http_server = None
         if "qemu" not in board_type or use_s3:
@@ -140,7 +129,7 @@ class Helpers:
 
         try:
             output = conn.run(
-                "mender %s http://%s/%s" % (install_flag, http_server_location, image)
+                "mender install http://%s/%s" % (http_server_location, image)
             )
             print("output from rootfs update: ", output.stdout)
         finally:
