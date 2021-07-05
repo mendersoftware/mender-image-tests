@@ -615,3 +615,14 @@ def make_tempdir(delete=True):
     finally:
         if delete:
             shutil.rmtree(tdir)
+
+
+MENDER_STATE_FILES = (
+    "/var/lib/mender/mender-agent.pem",
+    "/var/lib/mender/mender-store",
+    "/var/lib/mender/mender-store-lock",
+)
+
+
+def cleanup_mender_state(connection):
+    connection.run("rm -f %s" % " ".join(MENDER_STATE_FILES))
