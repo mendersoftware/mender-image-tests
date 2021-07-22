@@ -369,7 +369,9 @@ def build_image_fn(request, conversion, prepared_test_build_base, bitbake_image)
 
 
 @pytest.fixture(scope="session")
-def prepared_test_build_base(request, conversion, bitbake_variables, no_tmp_build_dir):
+def prepared_test_build_base(
+    request, conversion, bitbake_variables, no_tmp_build_dir, keep_tmp_build_dir
+):
 
     if conversion:
         return {"build_dir": None, "bitbake_corebase": None}
@@ -385,7 +387,7 @@ def prepared_test_build_base(request, conversion, bitbake_variables, no_tmp_buil
     bblayers_conf_orig = get_bblayers_conf_orig_path(build_dir)
 
     def cleanup_test_build():
-        if not no_tmp_build_dir:
+        if not no_tmp_build_dir and not keep_tmp_build_dir:
             run_verbose("rm -rf %s" % build_dir)
         else:
             reset_build_conf(build_dir, full_cleanup=True)
@@ -696,6 +698,11 @@ def s3_address(request):
 @pytest.fixture(scope="session")
 def no_tmp_build_dir(request):
     return request.config.getoption("--no-tmp-build-dir")
+
+
+@pytest.fixture(scope="session")
+def keep_tmp_build_dir(request):
+    return request.config.getoption("--keep-tmp-build-dir")
 
 
 @pytest.fixture(scope="session")

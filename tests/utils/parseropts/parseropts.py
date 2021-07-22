@@ -53,6 +53,12 @@ def pytest_addoption(parser):
         help="Do not use a temporary build directory. Faster, but may mess with your build directory.",
     )
     parser.addoption(
+        "--keep-tmp-build-dir",
+        action="store_true",
+        default=False,
+        help="Do not remove temporary build directories. Keep the directories for debugging purposes.",
+    )
+    parser.addoption(
         "--board-type",
         action="store",
         default="qemux86-64",
