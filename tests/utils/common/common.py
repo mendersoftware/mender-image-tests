@@ -250,48 +250,6 @@ def manual_uboot_commit(conn):
     conn.run("fw_setenv bootcount 0")
 
 
-def common_board_setup(conn, files=None, remote_path="/tmp", image_file=None):
-    """
-    Deploy and activate an image to a board that uses mender-qa tools.
-
-    :param image_file: IMAGE_FILE as passed to deploy-test-image, can be None
-    :param remote_path: where files will be stored in the remote system
-    :param files: list of files to deploy
-    """
-    for f in files:
-        put_no_sftp(
-            os.path.basename(f),
-            conn,
-            remote=os.path.join(remote_path, os.path.basename(f)),
-        )
-
-    env_overrides = {}
-    if image_file:
-        env_overrides["IMAGE_FILE"] = image_file
-
-    conn.run(
-        "{} mender-qa deploy-test-image".format(
-            " ".join(["{}={}".format(k, v) for k, v in env_overrides.items()])
-        )
-    )
-
-    conn.sudo("mender-qa activate-test-image")
-
-
-def common_board_cleanup(conn):
-    conn.sudo("mender-qa activate-test-image off")
-    conn.sudo("reboot", warn=True)
-
-    run_after_connect("true", conn)
-
-
-def common_boot_from_internal(conn):
-    conn.sudo("mender-qa activate-test-image on")
-    conn.sudo("reboot", warn=True)
-
-    run_after_connect("true", conn)
-
-
 def latest_build_artifact(request, builddir, extension, sdimg_location=None):
 
     # Force the builddir to be an absolute path

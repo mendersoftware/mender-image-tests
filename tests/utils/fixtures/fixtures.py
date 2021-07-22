@@ -26,8 +26,6 @@ from fabric import Connection
 from paramiko.client import WarningPolicy
 from ..common import (
     build_image,
-    common_board_setup,
-    common_board_cleanup,
     manual_uboot_commit,
     latest_build_artifact,
     run_verbose,
@@ -36,7 +34,6 @@ from ..common import (
     get_local_conf_orig_path,
     get_bblayers_conf_path,
     get_bblayers_conf_orig_path,
-    common_boot_from_internal,
     start_qemu_block_storage,
     start_qemu_flash,
     get_no_sftp,
@@ -92,48 +89,6 @@ def connection(request, user, host, ssh_priv_key):
 @pytest.fixture(scope="session")
 def second_connection(request, user, host, ssh_priv_key):
     return connection_factory(request, user, host, ssh_priv_key)
-
-
-@pytest.fixture(scope="session")
-def setup_colibri_imx7(request, build_dir, connection):
-    latest_uboot = latest_build_artifact(request, build_dir, "u-boot-nand.imx")
-    latest_ubimg = latest_build_artifact(request, build_dir, ".ubimg")
-
-    if not latest_uboot:
-        pytest.fail("failed to find U-Boot binary")
-
-    if not latest_ubimg:
-        pytest.fail("failed to find latest ubimg for the board")
-
-    common_board_setup(
-        connection,
-        files=[latest_ubimg, latest_uboot],
-        remote_path="/tmp",
-        image_file=os.path.basename(latest_ubimg),
-    )
-
-    def board_cleanup():
-        common_board_cleanup(connection)
-
-    request.addfinalizer(board_cleanup)
-
-
-@pytest.fixture(scope="session")
-def setup_bbb(request, connection):
-    def board_cleanup():
-        common_board_cleanup(connection)
-
-    common_boot_from_internal(connection)
-    request.addfinalizer(board_cleanup)
-
-
-@pytest.fixture(scope="session")
-def setup_rpi3(request, connection):
-    def board_cleanup():
-        common_board_cleanup(connection)
-
-    common_boot_from_internal(connection)
-    request.addfinalizer(board_cleanup)
 
 
 def setup_qemu(request, qemu_wrapper, build_dir, conn):
@@ -222,13 +177,6 @@ def setup_board(request, qemu_wrapper, build_image_fn, connection, board_type):
     if "qemu" in board_type:
         image_dir = build_image_fn()
         return setup_qemu(request, qemu_wrapper, image_dir, connection)
-    elif board_type == "beagleboneblack":
-        return setup_bbb(request, connection)
-    elif board_type == "raspberrypi3":
-        return setup_rpi3(request, connection)
-    elif board_type == "colibri-imx7":
-        image_dir = build_image_fn()
-        return setup_colibri_imx7(request, image_dir, connection)
     else:
         pytest.fail("unsupported board type {}".format(board_type))
 
