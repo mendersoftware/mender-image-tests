@@ -55,8 +55,8 @@ def pytest_addoption(parser):
     parser.addoption(
         "--board-type",
         action="store",
-        default="qemu",
-        help="type of board to use in testing, supported types: qemu, bbb, colibri-imx7",
+        default="qemux86-64",
+        help="type of board to use in testing, supported types: qemux86-64",
     )
     parser.addoption(
         "--use-s3",
