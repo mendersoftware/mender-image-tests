@@ -378,7 +378,7 @@ def run_verbose(cmd, capture=False):
         return subprocess.check_call(cmd, shell=True, executable="/bin/bash")
 
 
-# Capture is true or false and conditonally returns output.
+# Capture is true or false and conditionally returns output.
 def build_image(
     build_dir,
     bitbake_corebase,
