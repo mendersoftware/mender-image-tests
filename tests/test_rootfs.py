@@ -236,6 +236,30 @@ class TestRootfs:
             assert "Type: symlink" in output
             assert 'Fast link dest: "/data/mender-configure"' in output
 
+    @pytest.mark.only_with_image("ext4", "ext3", "ext2")
+    @pytest.mark.min_mender_version("3.1.0")
+    def test_expected_files_ext234_mender_monitor(
+        self, conversion, bitbake_path, bitbake_variables, latest_rootfs
+    ):
+        """Test mender-monitor expected files (only state folder)"""
+
+        if not conversion:
+            pytest.skip("Test only applicable for mender-convert images.")
+
+        with make_tempdir() as tmpdir:
+            # Check whether mender-monitor exists in /var/lib
+            self.verify_file_exists(
+                tmpdir, latest_rootfs, "/var/lib", "mender-monitor",
+            )
+
+            # Check contents of /var/lib/mender-monitor
+            output = subprocess.check_output(
+                ["debugfs", "-R", "stat /var/lib/mender-monitor", latest_rootfs],
+                cwd=tmpdir,
+            ).decode()
+            assert "Type: symlink" in output
+            assert 'Fast link dest: "/data/mender-monitor"' in output
+
     @pytest.mark.only_with_image("ubifs")
     @pytest.mark.min_mender_version("1.2.0")
     def test_expected_files_ubifs(self, bitbake_path, bitbake_variables, latest_ubifs):
