@@ -128,6 +128,14 @@ class TestRootfs:
                     "io.mender.UpdateManager.conf",
                     True,
                 )
+            if version_is_minimum(bitbake_variables, "mender-client", "3.2.0"):
+                self.verify_file_exists(
+                    tmpdir,
+                    latest_rootfs,
+                    "/usr/share/dbus-1/system.d",
+                    "io.mender.Proxy.conf",
+                    True,
+                )
 
     @pytest.mark.only_with_image("ext4", "ext3", "ext2")
     @pytest.mark.min_mender_version("2.5.1")
