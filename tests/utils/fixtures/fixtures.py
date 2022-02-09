@@ -82,8 +82,25 @@ def connection_factory(request, user, host, ssh_priv_key):
 
 
 @pytest.fixture(scope="session")
-def connection(request, user, host, ssh_priv_key):
+def session_connection(request, user, host, ssh_priv_key):
     return connection_factory(request, user, host, ssh_priv_key)
+
+
+@pytest.fixture(scope="function")
+def connection(request, session_connection):
+    def collect_coverage():
+        # Collect the coverage files from /data/mender/ if present
+        try:
+            session_connection.run("ls /data/mender/cover*")
+            Path("coverage").mkdir(exist_ok=True)
+            get_no_sftp("/data/mender/cover*", session_connection, local="coverage")
+            session_connection.run("rm -f /data/mender/cover*")
+        except:
+            pass
+
+    request.addfinalizer(collect_coverage)
+
+    return session_connection
 
 
 @pytest.fixture(scope="session")
@@ -133,14 +150,6 @@ def setup_qemu(request, qemu_wrapper, build_dir, conn):
             except:
                 pass
 
-            # Collect the coverage files from /data/mender/ if present
-            try:
-                conn.run("ls /data/mender/cover*")
-                Path("coverage").mkdir(exist_ok=True)
-                get_no_sftp("/data/mender/cover*", conn, local="coverage")
-            except:
-                pass
-
             # Try clean poweroff
             try:
                 conn.run("poweroff")
@@ -170,18 +179,18 @@ def setup_qemu(request, qemu_wrapper, build_dir, conn):
 
 
 @pytest.fixture(scope="session")
-def setup_board(request, qemu_wrapper, build_image_fn, connection, board_type):
+def setup_board(request, qemu_wrapper, build_image_fn, session_connection, board_type):
 
     print("board type: ", board_type)
 
     if "qemu" in board_type:
         image_dir = build_image_fn()
-        return setup_qemu(request, qemu_wrapper, image_dir, connection)
+        return setup_qemu(request, qemu_wrapper, image_dir, session_connection)
     else:
         pytest.fail("unsupported board type {}".format(board_type))
 
     """Make sure 'image.dat' is not present on the device."""
-    connection.run("rm -f image.dat")
+    session_connection.run("rm -f image.dat")
 
 
 @pytest.fixture(scope="session")
