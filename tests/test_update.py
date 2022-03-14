@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright 2020 Northern.tech AS
+# Copyright 2022 Northern.tech AS
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -801,7 +801,7 @@ class TestUpdates:
         ):
             env_dir = "/boot/grub"
         else:
-            env_dir = "/boot/efi/EFI/BOOT"
+            env_dir = "/boot/efi/grub-mender-grubenv"
 
         # Now try to corrupt the environment, and make sure it doesn't get booted into.
         for env_num in [1, 2]:

@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright 2020 Northern.tech AS
+# Copyright 2022 Northern.tech AS
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -334,7 +334,13 @@ class TestMostPartitionImages:
                 extract_partition(latest_part_image, 1)
                 for env_name in ["mender_grubenv1", "mender_grubenv2"]:
                     subprocess.check_call(
-                        ["mcopy", "-i", "img1.fs", "::/EFI/BOOT/%s/env" % env_name, "."]
+                        [
+                            "mcopy",
+                            "-i",
+                            "img1.fs",
+                            "::/grub-mender-grubenv/%s/env" % env_name,
+                            ".",
+                        ]
                     )
                     with open("env") as fd:
                         data = fd.read()
