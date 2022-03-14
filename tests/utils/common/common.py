@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright 2020 Northern.tech AS
+# Copyright 2022 Northern.tech AS
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -595,3 +595,32 @@ def bootenv_tools(connection):
         return ("grub-mender-grubenv-print", "grub-mender-grubenv-set")
     else:
         return ("fw_printenv", "fw_setenv")
+
+
+def extract_partition(img, number):
+    output = subprocess.Popen(
+        ["fdisk", "-l", "-o", "device,start,end", img], stdout=subprocess.PIPE
+    )
+    start = None
+    end = None
+    for line in output.stdout:
+        if re.search("img%d" % number, line.decode()) is None:
+            continue
+
+        match = re.match(r"\s*\S+\s+(\S+)\s+(\S+)", line.decode())
+        assert match is not None
+        start = int(match.group(1))
+        end = int(match.group(2)) + 1
+    output.wait()
+
+    assert start is not None
+    assert end is not None
+    subprocess.check_call(
+        [
+            "dd",
+            "if=" + img,
+            "of=img%d.fs" % number,
+            "skip=%d" % start,
+            "count=%d" % (end - start),
+        ]
+    )

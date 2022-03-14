@@ -22,7 +22,10 @@ import tempfile
 
 import pytest
 
-from utils.common import make_tempdir
+from utils.common import (
+    extract_partition,
+    make_tempdir,
+)
 
 from utils.helpers import Helpers
 
@@ -30,35 +33,6 @@ from utils.helpers import Helpers
 def align_up(bytes, alignment):
     """Rounds bytes up to nearest alignment."""
     return int((int(bytes) + int(alignment) - 1) / int(alignment)) * int(alignment)
-
-
-def extract_partition(img, number):
-    output = subprocess.Popen(
-        ["fdisk", "-l", "-o", "device,start,end", img], stdout=subprocess.PIPE
-    )
-    start = None
-    end = None
-    for line in output.stdout:
-        if re.search("img%d" % number, line.decode()) is None:
-            continue
-
-        match = re.match(r"\s*\S+\s+(\S+)\s+(\S+)", line.decode())
-        assert match is not None
-        start = int(match.group(1))
-        end = int(match.group(2)) + 1
-    output.wait()
-
-    assert start is not None
-    assert end is not None
-    subprocess.check_call(
-        [
-            "dd",
-            "if=" + img,
-            "of=img%d.fs" % number,
-            "skip=%d" % start,
-            "count=%d" % (end - start),
-        ]
-    )
 
 
 def print_partition_table(disk_image):
