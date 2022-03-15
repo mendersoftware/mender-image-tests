@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright 2020 Northern.tech AS
+# Copyright 2022 Northern.tech AS
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -77,6 +77,7 @@ class SignatureCase:
 class TestUpdates:
     @pytest.mark.min_mender_version("1.0.0")
     def test_broken_image_update(self, bitbake_variables, connection):
+        """Test that an update with a broken filesystem rolls back correctly."""
 
         file_flag = Helpers.get_file_flag(bitbake_variables)
         (active_before, passive_before) = determine_active_passive_part(
@@ -108,8 +109,8 @@ class TestUpdates:
             reboot(connection)
 
             # Now qemu is auto-rebooted twice; once to boot the dummy image,
-            # where it fails, and uboot auto-reboots a second time into the
-            # original partition.
+            # where it fails, and the boot loader auto-reboots a second time
+            # into the original partition.
 
             output = run_after_connect("mount", connection)
 
@@ -124,6 +125,61 @@ class TestUpdates:
                 os.remove("image.mender")
             if os.path.exists("image.dat"):
                 os.remove("image.dat")
+
+    @pytest.mark.min_mender_version("1.0.0")
+    def test_image_update_broken_kernel(
+        self,
+        bitbake_variables,
+        connection,
+        latest_mender_image,
+        http_server,
+        board_type,
+        use_s3,
+        s3_address,
+    ):
+        """Test that an update with a broken kernel rolls back correctly. This is
+        distinct from the test_broken_image_update test, which corrupts the
+        filesystem. When grub.d integration is enabled, these two scenarios
+        trigger very different code paths."""
+
+        file_flag = Helpers.get_file_flag(bitbake_variables)
+        (active_before, passive_before) = determine_active_passive_part(
+            bitbake_variables, connection
+        )
+
+        image_type = bitbake_variables["MENDER_DEVICE_TYPE"]
+
+        temp_artifact = "temporary_artifact.mender"
+        try:
+            shutil.copyfile(latest_mender_image, temp_artifact)
+            # Assume that artifact has the same kernel names as the currently
+            # running image.
+            kernels = connection.run("ls /boot/*linu[xz]*").stdout.split()
+            for kernel in kernels:
+                # Inefficient, but there shouldn't be too many kernels.
+                subprocess.check_call(
+                    ["mender-artifact", "rm", f"{temp_artifact}:{kernel}"]
+                )
+
+            Helpers.install_update(
+                temp_artifact, connection, http_server, board_type, use_s3, s3_address,
+            )
+
+            reboot(connection)
+
+            # Now qemu is auto-rebooted twice; once to boot the dummy image,
+            # where it fails, and the boot loader auto-reboots a second time
+            # into the original partition.
+
+            output = run_after_connect("mount", connection)
+
+            # The update should have reverted to the original active partition,
+            # since the kernel was missing.
+            assert output.find(active_before) >= 0
+            assert output.find(passive_before) < 0
+
+        finally:
+            os.remove(temp_artifact)
 
     @pytest.mark.min_mender_version("1.0.0")
     def test_too_big_image_update(self, bitbake_variables, connection):
@@ -801,7 +857,7 @@ class TestUpdates:
         ):
             env_dir = "/boot/grub"
         else:
-            env_dir = "/boot/efi/EFI/BOOT"
+            env_dir = "/boot/efi/grub-mender-grubenv"
 
         # Now try to corrupt the environment, and make sure it doesn't get booted into.
         for env_num in [1, 2]:

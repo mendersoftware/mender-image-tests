@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright 2020 Northern.tech AS
+# Copyright 2022 Northern.tech AS
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -22,7 +22,10 @@ import tempfile
 
 import pytest
 
-from utils.common import make_tempdir
+from utils.common import (
+    extract_partition,
+    make_tempdir,
+)
 
 from utils.helpers import Helpers
 
@@ -30,35 +33,6 @@ from utils.helpers import Helpers
 def align_up(bytes, alignment):
     """Rounds bytes up to nearest alignment."""
     return int((int(bytes) + int(alignment) - 1) / int(alignment)) * int(alignment)
-
-
-def extract_partition(img, number):
-    output = subprocess.Popen(
-        ["fdisk", "-l", "-o", "device,start,end", img], stdout=subprocess.PIPE
-    )
-    start = None
-    end = None
-    for line in output.stdout:
-        if re.search("img%d" % number, line.decode()) is None:
-            continue
-
-        match = re.match(r"\s*\S+\s+(\S+)\s+(\S+)", line.decode())
-        assert match is not None
-        start = int(match.group(1))
-        end = int(match.group(2)) + 1
-    output.wait()
-
-    assert start is not None
-    assert end is not None
-    subprocess.check_call(
-        [
-            "dd",
-            "if=" + img,
-            "of=img%d.fs" % number,
-            "skip=%d" % start,
-            "count=%d" % (end - start),
-        ]
-    )
 
 
 def print_partition_table(disk_image):
@@ -334,7 +308,13 @@ class TestMostPartitionImages:
                 extract_partition(latest_part_image, 1)
                 for env_name in ["mender_grubenv1", "mender_grubenv2"]:
                     subprocess.check_call(
-                        ["mcopy", "-i", "img1.fs", "::/EFI/BOOT/%s/env" % env_name, "."]
+                        [
+                            "mcopy",
+                            "-i",
+                            "img1.fs",
+                            "::/grub-mender-grubenv/%s/env" % env_name,
+                            ".",
+                        ]
                     )
                     with open("env") as fd:
                         data = fd.read()
