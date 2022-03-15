@@ -179,13 +179,17 @@ def setup_qemu(request, qemu_wrapper, build_dir, conn):
 
 
 @pytest.fixture(scope="session")
-def setup_board(request, qemu_wrapper, build_image_fn, session_connection, board_type):
+def setup_board(
+    request, qemu_wrapper, build_image_fn, session_connection, board_type, conversion
+):
 
     print("board type: ", board_type)
 
     if "qemu" in board_type:
         image_dir = build_image_fn()
         return setup_qemu(request, qemu_wrapper, image_dir, session_connection)
+    elif conversion:
+        pytest.skip("Skip non-qemu platforms for mender-convert")
     else:
         pytest.fail("unsupported board type {}".format(board_type))
 
