@@ -21,7 +21,7 @@ class TestSecureBoot:
     @pytest.mark.min_mender_version("1.0.0")
     def test_secure_boot_enabled(self, connection, conversion):
         if not conversion:
-            pytest.xfail("MEN-5253: Secure Boot not yet working for Yocto", strict=True)
+            pytest.skip("MEN-5253: Secure Boot not yet working for Yocto")
 
         output = connection.run("mokutil --sb-state").stdout.strip()
         assert output == "SecureBoot enabled"
