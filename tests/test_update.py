@@ -154,7 +154,9 @@ class TestUpdates:
             shutil.copyfile(latest_mender_image, temp_artifact)
             # Assume that artifact has the same kernel names as the currently
             # running image.
-            kernels = connection.run("ls /boot/*linu[xz]*").stdout.split()
+            kernels = connection.run(
+                "find /boot/ -maxdepth 1 -name '*linu[xz]*' -o -name '*Image'"
+            ).stdout.split()
             for kernel in kernels:
                 # Inefficient, but there shouldn't be too many kernels.
                 subprocess.check_call(
