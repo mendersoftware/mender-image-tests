@@ -126,6 +126,9 @@ class TestUpdates:
             if os.path.exists("image.dat"):
                 os.remove("image.dat")
 
+    # We will use mender-artifact to modify an artifact in this test. Because it
+    # doesn't support ubifs modifications, disable it for vexpress-qemu-flash.
+    @pytest.mark.not_for_machine("vexpress-qemu-flash")
     @pytest.mark.min_mender_version("1.0.0")
     def test_image_update_broken_kernel(
         self,
