@@ -178,6 +178,15 @@ def setup_qemu(request, qemu_wrapper, build_dir, conn):
     request.addfinalizer(qemu_finalizer)
 
 
+def setup_hardware_test_board(request, conn):
+
+    print("Make sure we have a connection to the hardware test board")
+
+    res = conn.run("whoami")
+
+    assert res.exited == 0, "Failed to grab a connection to the hardware test device"
+
+
 @pytest.fixture(scope="session")
 def setup_board(
     request, qemu_wrapper, build_image_fn, session_connection, board_type, conversion
@@ -188,6 +197,10 @@ def setup_board(
     if "qemu" in board_type:
         image_dir = build_image_fn()
         return setup_qemu(request, qemu_wrapper, image_dir, session_connection)
+    elif "raspberrypi4" in board_type and request.config.getoption(
+        "--hardware-testing"
+    ):
+        return setup_hardware_test_board(request, session_connection)
     elif conversion:
         pytest.skip("Skip non-qemu platforms for mender-convert")
     else:
