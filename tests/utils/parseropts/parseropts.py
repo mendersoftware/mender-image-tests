@@ -100,6 +100,13 @@ def pytest_addoption(parser):
         help="Enable tests of commercial features",
     )
 
+    parser.addoption(
+        "--hardware-testing",
+        action="store_true",
+        default=False,
+        help="Run the test with real hardware",
+    )
+
 
 def pytest_configure(config):
     #
