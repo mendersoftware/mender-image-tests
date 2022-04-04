@@ -126,6 +126,9 @@ class TestUpdates:
             if os.path.exists("image.dat"):
                 os.remove("image.dat")
 
+    # We will use mender-artifact to modify an artifact in this test. Because it
+    # doesn't support ubifs modifications, disable it for vexpress-qemu-flash.
+    @pytest.mark.not_for_machine("vexpress-qemu-flash")
     @pytest.mark.min_mender_version("1.0.0")
     def test_image_update_broken_kernel(
         self,
@@ -154,7 +157,9 @@ class TestUpdates:
             shutil.copyfile(latest_mender_image, temp_artifact)
             # Assume that artifact has the same kernel names as the currently
             # running image.
-            kernels = connection.run("ls /boot/*linu[xz]*").stdout.split()
+            kernels = connection.run(
+                "find /boot/ -maxdepth 1 -name '*linu[xz]*' -o -name '*Image'"
+            ).stdout.split()
             for kernel in kernels:
                 # Inefficient, but there shouldn't be too many kernels.
                 subprocess.check_call(
