@@ -16,6 +16,7 @@
 import pytest
 
 
+@pytest.mark.only_with_image("uefiimg")
 @pytest.mark.usefixtures("setup_board")
 class TestSecureBoot:
     @pytest.mark.min_mender_version("1.0.0")

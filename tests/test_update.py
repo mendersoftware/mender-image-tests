@@ -978,10 +978,6 @@ class TestUpdates:
                 assert (
                     result.return_code != 0
                 ), "Update succeeded when canary was not present!"
-                # This should just fail, since we don't provide a default
-                # environment in libubootenv (we used to for u-boot-fw-utils).
-                result = connection.run(f"{bootenv_print} upgrade_available", warn=True)
-                assert result.return_code != 0
 
             finally:
                 # Restore environment to what it was.
