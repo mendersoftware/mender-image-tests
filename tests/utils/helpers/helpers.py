@@ -25,10 +25,10 @@ from ..common import get_no_sftp, version_is_minimum
 class Helpers:
     @staticmethod
     def upload_to_s3(artifact):
-        subprocess.call(
+        subprocess.check_call(
             ["s3cmd", "--follow-symlinks", "put", artifact, "s3://mender/temp/"]
         )
-        subprocess.call(
+        subprocess.check_call(
             ["s3cmd", "setacl", "s3://mender/temp/%s" % artifact, "--acl-public"]
         )
 
