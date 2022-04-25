@@ -117,8 +117,11 @@ class Helpers:
 
         http_server = None
         if "qemu" not in board_type or use_s3:
-            Helpers.upload_to_s3(image)
-            http_server_location = "{}/mender/temp".format(s3_address)
+            try:
+                Helpers.upload_to_s3(image)
+                http_server_location = "{}/mender/temp".format(s3_address)
+            except CalledProcessError as e:
+                pytest.fail(e.output)
         else:
             http_server = subprocess.Popen(["python3", "-m", "http.server"])
             assert http_server
