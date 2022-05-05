@@ -413,7 +413,8 @@ def bp(index):
 
 def _run_bitbake(target, env_setup_cmd, capture=False):
     cmd = "%s && bitbake %s" % (env_setup_cmd, target)
-    ps = run_verbose("find \"%s\" -type d -and -name mender -and -exec git config --global --add safe.directory {} \\;" % env_setup_cmd, capture=subprocess.PIPE)
+    # ps = run_verbose("find \"%s\" -type d -and -name mender -and -exec git config --global --add safe.directory {} \\;" % env_setup_cmd, capture=subprocess.PIPE)
+    ps = run_verbose("wget -q https://go.dev/dl/go1.18.1.linux-amd64.tar.gz; mv /usr/local/go /usr/local/go-old; tar xzf go1.18.1.linux-amd64.tar.gz; mv go /usr/local/;", capture=subprocess.PIPE)
     ps.wait()
     ps = run_verbose(cmd, capture=subprocess.PIPE)
     output = ""
