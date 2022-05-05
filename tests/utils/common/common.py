@@ -402,6 +402,12 @@ def build_image(
     else:
         _run_bitbake(bitbake_image, init_env_cmd, capture)
 
+def bp(index):
+    t = "/tmp/bp" + str(index)
+    sys.stdout.write("bp: waiting on %s" % t)
+    while not os.path.exists(t):
+        time.sleep(0.1)
+    sys.stdout.write("bp: released on %s" % t)
 
 def _run_bitbake(target, env_setup_cmd, capture=False):
     cmd = "%s && bitbake %s" % (env_setup_cmd, target)
@@ -437,6 +443,10 @@ def _run_bitbake(target, env_setup_cmd, capture=False):
             e = subprocess.CalledProcessError(ps.returncode, cmd)
             if capture:
                 e.output = output
+            sys.stdout.write("output {{{")
+            sys.stdout.write(output)
+            sys.stdout.write("}}}")
+            bp(1)
             raise e
 
     return output
