@@ -404,7 +404,7 @@ def build_image(
 
 
 def _run_bitbake(target, env_setup_cmd, capture=False):
-    cmd = "%s && bitbake %s" % (env_setup_cmd, target)
+    cmd = "%s && bitbake -c cleansstate %s && bitbake %s" % (env_setup_cmd, target, target)
     ps = run_verbose(cmd, capture=subprocess.PIPE)
     output = ""
     try:
