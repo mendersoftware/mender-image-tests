@@ -387,7 +387,6 @@ def build_image_fn(request, conversion, prepared_test_build_base, bitbake_image)
             prepared_test_build_base["build_dir"],
             prepared_test_build_base["bitbake_corebase"],
             bitbake_image,
-            ['EXTRA_IMAGE_FEATURES_append = " ssh-server-openssh"',],
         )
         return prepared_test_build_base["build_dir"]
 
