@@ -223,7 +223,7 @@ def determine_active_passive_part(bitbake_variables, conn):
 
 
 def get_ssh_common_args(conn):
-    args = "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+    args = "-O -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
     if "key_filename" in conn.connect_kwargs.keys():
         args += " -i %s" % conn.connect_kwargs["key_filename"]
     return args
