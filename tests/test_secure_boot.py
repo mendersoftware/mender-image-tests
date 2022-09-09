@@ -20,9 +20,17 @@ import pytest
 @pytest.mark.usefixtures("setup_board")
 class TestSecureBoot:
     @pytest.mark.min_mender_version("1.0.0")
-    def test_secure_boot_enabled(self, connection, conversion):
+    def test_secure_boot_enabled(self, connection, conversion, bitbake_variables):
         if not conversion:
             pytest.skip("MEN-5253: Secure Boot not yet working for Yocto")
 
         output = connection.run("mokutil --sb-state").stdout.strip()
+
+        if conversion:
+            # For mender-convert, Secure Boot is disabled if `grub.d`
+            # integration is turned off.
+            if bitbake_variables["MENDER_GRUB_D_INTEGRATION"] == "n":
+                assert "SecureBoot disabled" in output
+                return
+
         assert output == "SecureBoot enabled"
