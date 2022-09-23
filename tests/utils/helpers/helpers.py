@@ -33,52 +33,6 @@ class Helpers:
         )
 
     @staticmethod
-    def get_env_offsets(bitbake_variables):
-        offsets = [0, 0]
-
-        alignment = int(bitbake_variables["MENDER_PARTITION_ALIGNMENT"])
-        env_size = os.stat(
-            os.path.join(bitbake_variables["DEPLOY_DIR_IMAGE"], "uboot.env")
-        ).st_size
-        offsets[0] = int(bitbake_variables["MENDER_UBOOT_ENV_STORAGE_DEVICE_OFFSET"])
-        offsets[1] = offsets[0] + int(env_size / 2)
-
-        assert offsets[0] % alignment == 0
-        assert offsets[1] % alignment == 0
-
-        return offsets
-
-    @staticmethod
-    def get_env_checksums(bitbake_variables, connection):
-        checksums = [0, 0]
-
-        offsets = Helpers.get_env_offsets(bitbake_variables)
-        dev = bitbake_variables["MENDER_STORAGE_DEVICE"]
-
-        connection.run(
-            "dd if=%s of=/data/env1.tmp bs=1 count=4 skip=%d" % (dev, offsets[0])
-        )
-        connection.run(
-            "dd if=%s of=/data/env2.tmp bs=1 count=4 skip=%d" % (dev, offsets[1])
-        )
-
-        get_no_sftp("/data/env1.tmp", connection)
-        get_no_sftp("/data/env2.tmp", connection)
-        connection.run("rm -f /data/env1.tmp /data/env2.tmp")
-
-        env = open("env1.tmp", "rb")
-        checksums[0] = env.read()
-        env.close()
-        env = open("env2.tmp", "rb")
-        checksums[1] = env.read()
-        env.close()
-
-        os.remove("env1.tmp")
-        os.remove("env2.tmp")
-
-        return checksums
-
-    @staticmethod
     def corrupt_middle_byte(fd):
         # Corrupt the middle byte in the contents.
         middle = int(os.fstat(fd.fileno()).st_size / 2)
