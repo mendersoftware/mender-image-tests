@@ -115,6 +115,10 @@ def pytest_configure(config):
     #
     config.addinivalue_line(
         "markers",
+        "exclusive: indicate that this test will run in isolation, not in parallel with others",
+    )
+    config.addinivalue_line(
+        "markers",
         "min_mender_version: indicate lowest Mender version for which the test will run",
     )
     config.addinivalue_line(

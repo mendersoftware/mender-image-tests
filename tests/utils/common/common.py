@@ -14,6 +14,8 @@
 #    limitations under the License.
 
 from distutils.version import LooseVersion
+import fcntl
+import filelock
 import pytest
 import os
 import re
@@ -109,6 +111,41 @@ class Connection:
 
     def local(self, command, warn=False):
         return subprocess.run(command, shell=True, check=not warn)
+
+
+# Copied from filelock.py. The original code is public domain, so it's ok to
+# relicense. The only change from the original is the usage of LOCK_SH instead
+# of LOCK_EX.
+class ReadFileLock(filelock.BaseFileLock):
+    """
+    Uses the :func:`fcntl.flock` to hard lock the lock file on unix systems.
+    """
+
+    def _acquire(self):
+        open_mode = os.O_RDWR | os.O_CREAT | os.O_TRUNC
+        fd = os.open(self._lock_file, open_mode)
+
+        try:
+            fcntl.flock(fd, fcntl.LOCK_SH | fcntl.LOCK_NB)
+        except (IOError, OSError):
+            os.close(fd)
+        else:
+            self._lock_file_fd = fd
+        return None
+
+    def _release(self):
+        # Do not remove the lockfile:
+        #
+        #   https://github.com/benediktschmitt/py-filelock/issues/31
+        #   https://stackoverflow.com/questions/17708885/flock-removing-locked-file-without-race-condition
+        fd = self._lock_file_fd
+        self._lock_file_fd = None
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)
+        return None
+
+
+WriteFileLock = filelock.FileLock
 
 
 def _start_qemu(qenv, conn, qemu_wrapper):

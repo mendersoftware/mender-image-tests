@@ -25,6 +25,8 @@ import pytest
 from ..common import (
     build_image,
     Connection,
+    ReadFileLock,
+    WriteFileLock,
     manual_uboot_commit,
     latest_build_artifact,
     run_verbose,
@@ -39,6 +41,23 @@ from ..common import (
     get_bitbake_variables,
     version_is_minimum,
 )
+
+
+@pytest.fixture(scope="function", autouse=True)
+def exclusivity(request):
+    if request.node.get_closest_marker("exclusive"):
+        lock = WriteFileLock("exclusive.test.lock")
+    else:
+        lock = ReadFileLock("exclusive.test.lock")
+
+    lock.acquire()
+
+    def release():
+        lock.release()
+
+    request.addfinalizer(release)
+
+    return lock
 
 
 def config_host(host):
