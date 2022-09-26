@@ -148,6 +148,23 @@ class ReadFileLock(filelock.BaseFileLock):
 WriteFileLock = filelock.FileLock
 
 
+def get_worker_count():
+    count = os.getenv("PYTEST_XDIST_WORKER_COUNT")
+    if count is not None:
+        return int(count)
+    # Default to one worker.
+    return 1
+
+
+def get_worker_index():
+    worker = os.getenv("PYTEST_XDIST_WORKER")
+    if worker is not None:
+        match = re.search("[0-9]+$", worker)
+        return int(match.group(0))
+    # Default to zero = one worker.
+    return 0
+
+
 def _start_qemu(qenv, conn, qemu_wrapper):
     """Start QEMU and return a subprocess.Popen object corresponding to a running
     qemu process.
@@ -167,6 +184,9 @@ def _start_qemu(qenv, conn, qemu_wrapper):
     """
     env = dict(os.environ)
     env.update(qenv)
+
+    env["PORT_NUMBER"] = str(8822 + get_worker_index())
+    env["VNC_NUMBER"] = str(23 + get_worker_index())
 
     proc = subprocess.Popen([qemu_wrapper], env=env, start_new_session=True)
 

@@ -35,6 +35,8 @@ from ..common import (
     get_local_conf_orig_path,
     get_bblayers_conf_path,
     get_bblayers_conf_orig_path,
+    get_worker_count,
+    get_worker_index,
     start_qemu_block_storage,
     start_qemu_flash,
     get_no_sftp,
@@ -66,9 +68,9 @@ def config_host(host):
     if len(host_info) == 2:
         return host_info[0], int(host_info[1])
     elif len(host_info) == 1:
-        return host_info[0], 8822
+        return host_info[0], 8822 + get_worker_index()
     else:
-        return "localhost", 8822
+        return "localhost", 8822 + get_worker_index()
 
 
 def connection_factory(request, user, host, ssh_priv_key):
@@ -194,6 +196,11 @@ def setup_board(
 ):
 
     print("board type: ", board_type)
+
+    worker_count = get_worker_count()
+    assert (
+        "qemu" in board_type or worker_count == 1
+    ), "Only QEMU is supported when using multiple workers"
 
     if "qemu" in board_type:
         image_dir = build_image_fn()
@@ -403,6 +410,10 @@ def prepared_test_build_base(
         return {"build_dir": None, "bitbake_corebase": None}
 
     if no_tmp_build_dir:
+        worker_count = get_worker_count()
+        assert (
+            worker_count == 1
+        ), "Using multiple workers is not compatible with the --no-tmp-build-dir argument. Either remove the argument, set worker count to 1 (`-n 1`), or disable xdist altogether (`-p no:xdist`)."
         build_dir = os.environ["BUILDDIR"]
     else:
         build_dir = tempfile.mkdtemp(prefix="test-build-", dir=os.environ["BUILDDIR"])
@@ -663,7 +674,8 @@ def not_with_mender_feature(request, bitbake_variables):
 
 @pytest.fixture(scope="session")
 def host(request):
-    return request.config.getoption("--host")
+    host, port = request.config.getoption("--host").split(":")
+    return "%s:%s" % (host, str(int(port) + get_worker_index()))
 
 
 @pytest.fixture(scope="session")
