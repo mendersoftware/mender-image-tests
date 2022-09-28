@@ -13,10 +13,6 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-from fabric import Connection
-from paramiko import SSHException
-from paramiko.ssh_exception import NoValidConnectionsError
-
 from distutils.version import LooseVersion
 import pytest
 import os
@@ -30,6 +26,89 @@ import sys
 
 from contextlib import contextmanager
 import traceback
+
+
+class Result:
+    def __init__(self, stdout, stderr, exited):
+        self.stdout = stdout
+        self.stderr = stderr
+        self.exited = exited
+        self.return_code = exited
+
+
+class Connection:
+    def __init__(self, host, user, port, connect_timeout, connect_kwargs={}):
+        self.host = host
+        self.user = user
+        self.port = port
+        self.connect_timeout = connect_timeout
+        self.connect_kwargs = connect_kwargs
+
+        self.key_filename = None
+
+        for k in connect_kwargs.keys():
+            if k == "key_filename":
+                self.key_filename = connect_kwargs[k]
+            else:
+                raise NotImplementedError(f"Argument {k} is not implemented")
+
+    def get_connect_args(self):
+        if self.key_filename is not None:
+            key_arg = ["-i", self.key_filename]
+        else:
+            key_arg = []
+
+        args = (
+            ["ssh"]
+            + key_arg
+            + [
+                "-p",
+                str(self.port),
+                "-o",
+                f"ConnectTimeout={self.connect_timeout}",
+                "-o",
+                "UserKnownHostsFile=/dev/null",
+                "-o",
+                "StrictHostKeyChecking=no",
+                f"{self.user}@{self.host}",
+            ]
+        )
+
+        return args
+
+    def run(self, command, warn=False, hide=False, echo=False, popen=False):
+        ssh_command = self.get_connect_args() + [command]
+
+        if echo:
+            print(command)
+
+        if popen:
+            return subprocess.Popen(ssh_command)
+        else:
+            try:
+                proc = subprocess.run(ssh_command, check=not warn, capture_output=True)
+                returncode = proc.returncode
+            except subprocess.CalledProcessError as e:
+                returncode = e.returncode
+                if returncode != 255:
+                    raise
+
+            if returncode == 255:
+                raise ConnectionError(
+                    f"Could not connect using command '{ssh_command}'"
+                )
+
+            stdout = proc.stdout.decode()
+            stderr = proc.stderr.decode()
+
+            if not hide:
+                print(stdout)
+                print(stderr)
+
+            return Result(stdout, stderr, returncode)
+
+    def local(self, command, warn=False):
+        return subprocess.run(command, shell=True, check=not warn)
 
 
 def _start_qemu(qenv, conn, qemu_wrapper):
@@ -143,16 +222,6 @@ def reboot(conn, wait=120):
     # Make sure reboot has had time to take effect.
     time.sleep(5)
 
-    for _ in range(5):
-        try:
-            conn.close()
-            break
-        except IOError:
-            # Occasionally we get an IO error here because resource is temporarily
-            # unavailable.
-            time.sleep(5)
-            continue
-
     run_after_connect("true", conn, wait=wait)
 
 
@@ -161,46 +230,34 @@ def run_after_connect(cmd, conn, wait=360):
     orig_timeout = conn.connect_timeout
     conn.connect_timeout = 60
     timeout = time.time() + 60 * 3
+    latest_exception = None
 
-    while time.time() < timeout:
-        try:
-            print("will try to connect to host", conn.host)
-            result = conn.run(cmd, hide=True)
-            return result.stdout
-        except NoValidConnectionsError as e:
-            print("Could not connect to host %s: %s" % (conn.host, e))
-            time.sleep(30)
-            continue
-        except SSHException as e:
-            print("Got SSH exception while connecting to host %s: %s" % (conn.host, e))
-            if not (
-                "Connection reset by peer" in str(e)
-                or "Error reading SSH protocol banner" in str(e)
-                or "No existing session" in str(e)
-            ):
+    try:
+        while time.time() < timeout:
+            try:
+                print("will try to connect to host", conn.host)
+                result = conn.run(cmd, hide=True)
+                return result.stdout
+            except ConnectionError as e:
+                latest_exception = e
+                print(
+                    "Got SSH exception while connecting to host %s: %s" % (conn.host, e)
+                )
+                time.sleep(30)
+                continue
+            except Exception as e:
+                print(
+                    "Generic exception happened while connecting to host %s: %s"
+                    % (conn.host, e)
+                )
+                print(type(e))
+                print(e.args)
                 raise e
-            time.sleep(30)
-            continue
-        except OSError as e:
-            # The OSError is happening while there is no QEMU instance initialized
-            print(
-                "Got OSError exception while connecting to host %s: %s" % (conn.host, e)
-            )
-            if not "Cannot assign requested address" in str(e):
-                raise e
-            time.sleep(30)
-            continue
-        except Exception as e:
-            print(
-                "Generic exception happened while connecting to host %s: %s"
-                % (conn.host, e)
-            )
-            print(type(e))
-            print(e.args)
-            raise e
-        finally:
-            # Restore the original connection parameters
-            conn.connect_timeout = orig_timeout
+    finally:
+        # Restore the original connection parameters
+        conn.connect_timeout = orig_timeout
+
+    raise latest_exception
 
 
 def determine_active_passive_part(bitbake_variables, conn):

@@ -22,10 +22,9 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from fabric import Connection
-from paramiko.client import WarningPolicy
 from ..common import (
     build_image,
+    Connection,
     manual_uboot_commit,
     latest_build_artifact,
     run_verbose,
@@ -55,13 +54,7 @@ def config_host(host):
 
 def connection_factory(request, user, host, ssh_priv_key):
     host, port = config_host(host)
-    connect_kwargs = {
-        "password": "",
-        "banner_timeout": 60,
-        "auth_timeout": 60,
-        "look_for_keys": False,
-        "allow_agent": False,
-    }
+    connect_kwargs = {}
     if ssh_priv_key != "":
         connect_kwargs["key_filename"] = ssh_priv_key
     conn = Connection(
@@ -71,12 +64,6 @@ def connection_factory(request, user, host, ssh_priv_key):
         connect_timeout=60,
         connect_kwargs=connect_kwargs,
     )
-    conn.client.set_missing_host_key_policy(WarningPolicy())
-
-    def fin():
-        conn.close()
-
-    request.addfinalizer(fin)
 
     return conn
 
@@ -101,11 +88,6 @@ def connection(request, session_connection):
     request.addfinalizer(collect_coverage)
 
     return session_connection
-
-
-@pytest.fixture(scope="session")
-def second_connection(request, user, host, ssh_priv_key):
-    return connection_factory(request, user, host, ssh_priv_key)
 
 
 def setup_qemu(request, qemu_wrapper, build_dir, conn):
