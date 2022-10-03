@@ -17,7 +17,6 @@ import os
 import shutil
 import time
 import errno
-import tempfile
 import subprocess
 from pathlib import Path
 
@@ -416,7 +415,9 @@ def prepared_test_build_base(
         ), "Using multiple workers is not compatible with the --no-tmp-build-dir argument. Either remove the argument, set worker count to 1 (`-n 1`), or disable xdist altogether (`-p no:xdist`)."
         build_dir = os.environ["BUILDDIR"]
     else:
-        build_dir = tempfile.mkdtemp(prefix="test-build-", dir=os.environ["BUILDDIR"])
+        build_dir = os.path.join(
+            os.environ["BUILDDIR"], "test-build-%d" % get_worker_index()
+        )
 
     local_conf = get_local_conf_path(build_dir)
     local_conf_orig = get_local_conf_orig_path(build_dir)
