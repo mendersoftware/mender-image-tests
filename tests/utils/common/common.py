@@ -209,7 +209,7 @@ def start_qemu_flash(latest_vexpress_nor, conn, qemu_wrapper):
     return qemu, img_path
 
 
-def reboot(conn, wait=120):
+def reboot(conn, wait=360):
     try:
         conn.run("reboot", warn=True)
     except:
@@ -229,7 +229,7 @@ def run_after_connect(cmd, conn, wait=360):
     # override the Connection parameters
     orig_timeout = conn.connect_timeout
     conn.connect_timeout = 60
-    timeout = time.time() + 60 * 3
+    timeout = time.time() + wait
     latest_exception = None
 
     try:
