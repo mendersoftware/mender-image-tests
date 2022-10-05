@@ -18,6 +18,7 @@ import shutil
 import time
 import errno
 import subprocess
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -328,16 +329,18 @@ def successful_image_update_mender(request, build_image_fn):
 
     latest_mender_image = latest_build_artifact(request, build_image_fn(), ".mender")
 
-    shutil.copy(latest_mender_image, "successful_image_update.mender")
+    artifact_file = tempfile.NamedTemporaryFile(suffix=".mender")
 
-    print("Copying '%s' to 'successful_image_update.mender'" % latest_mender_image)
+    shutil.copy(latest_mender_image, artifact_file.name)
 
-    def cleanup_image_dat():
-        os.remove("successful_image_update.mender")
+    print("Copying '%s' to '%s'" % (latest_mender_image, artifact_file.name))
 
-    request.addfinalizer(cleanup_image_dat)
+    def cleanup():
+        artifact_file.close()
 
-    return "successful_image_update.mender"
+    request.addfinalizer(cleanup)
+
+    return artifact_file.name
 
 
 #
@@ -355,15 +358,22 @@ def bitbake_variables(request, conversion, sdimg_location):
 
 
 @pytest.fixture(scope="session")
-def bitbake_path(request, conversion):
+def bitbake_path(request, conversion, prepared_test_build_base):
     """Fixture that enables the PATH we need for our testing tools."""
 
     old_path = os.environ["PATH"]
 
     if not conversion:
-        run_verbose("bitbake -c prepare_recipe_sysroot mender-test-dependencies")
+        build_image(
+            prepared_test_build_base["build_dir"],
+            prepared_test_build_base["bitbake_corebase"],
+            "mender-test-dependencies",
+            target="-c prepare_recipe_sysroot mender-test-dependencies",
+        )
         bb_testing_variables = get_bitbake_variables(
-            request, "mender-test-dependencies"
+            request,
+            "mender-test-dependencies",
+            prepared_test_build=prepared_test_build_base,
         )
         os.environ["PATH"] = bb_testing_variables["PATH"] + ":" + os.environ["PATH"]
 

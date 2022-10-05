@@ -711,7 +711,7 @@ def bootenv_tools(connection):
         return ("fw_printenv", "fw_setenv")
 
 
-def extract_partition(img, number):
+def extract_partition(img, number, dst):
     output = subprocess.Popen(
         ["fdisk", "-l", "-o", "device,start,end", img], stdout=subprocess.PIPE
     )
@@ -733,7 +733,7 @@ def extract_partition(img, number):
         [
             "dd",
             "if=" + img,
-            "of=img%d.fs" % number,
+            f"of={dst}/img{number}.fs",
             "skip=%d" % start,
             "count=%d" % (end - start),
         ]

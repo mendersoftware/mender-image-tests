@@ -19,7 +19,7 @@ import time
 import requests
 import redo
 
-from ..common import get_no_sftp, version_is_minimum
+from ..common import get_no_sftp, version_is_minimum, get_worker_index
 
 
 class Helpers:
@@ -54,19 +54,16 @@ class Helpers:
         # We want `image` to be in the current directory because we use Python's
         # `http.server`. If it isn't, make a symlink, and relaunch.
         if os.path.dirname(os.path.abspath(image)) != os.getcwd():
-            os.symlink(image, "temp-artifact.mender")
+            temp_artifact = "temp-artifact-%d.mender" % get_worker_index()
+            os.symlink(image, temp_artifact)
             try:
                 return Helpers.install_update(
-                    "temp-artifact.mender",
-                    conn,
-                    http_server,
-                    board_type,
-                    use_s3,
-                    s3_address,
+                    temp_artifact, conn, http_server, board_type, use_s3, s3_address,
                 )
             finally:
-                os.unlink("temp-artifact.mender")
+                os.unlink(temp_artifact)
 
+        port = 8000 + get_worker_index()
         http_server_location = http_server
 
         http_server = None
@@ -74,12 +71,13 @@ class Helpers:
             Helpers.upload_to_s3(image)
             http_server_location = "{}/mender/temp".format(s3_address)
         else:
-            http_server = subprocess.Popen(["python3", "-m", "http.server"])
+            http_server = subprocess.Popen(["python3", "-m", "http.server", str(port)])
             assert http_server
 
             def probe_http_server():
                 assert (
-                    requests.head(f"http://localhost:8000/{image}").status_code == 200
+                    requests.head("http://localhost:%d/%s" % (port, image)).status_code
+                    == 200
                 )
 
             redo.retry(
@@ -98,7 +96,7 @@ class Helpers:
             if http_server:
                 try:
                     status_code = requests.head(
-                        "http://localhost:8000/%s" % (image)
+                        "http://localhost:%d/%s" % (port, image)
                     ).status_code
                     if status_code != 200:
                         print(
