@@ -20,8 +20,6 @@ import shutil
 import subprocess
 import tempfile
 
-from fabric import Connection
-from invoke import UnexpectedExit
 import pytest
 
 from utils.common import (
@@ -803,12 +801,7 @@ class TestUpdates:
                 ).stdout
                 assert content == expected_content, "Case: %s" % sig_case.label
 
-            # In Fabric context, SystemExit means CalledProcessError. We should
-            # not catch all exceptions, because we want to leave assertions
-            # alone.
-            # In Fabric2 there might be different exception thrown in that case
-            # which is UnexpectedExit.
-            except (SystemExit, UnexpectedExit):
+            except subprocess.CalledProcessError:
                 if (
                     "mender-ubi" in bitbake_variables.get("MENDER_FEATURES", "").split()
                     or "mender-ubi"
