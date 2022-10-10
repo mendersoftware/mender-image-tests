@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright 2020 Northern.tech AS
+# Copyright 2022 Northern.tech AS
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -14,10 +14,10 @@
 #    limitations under the License.
 
 import os
-import re
 import subprocess
 import time
 import requests
+import redo
 
 from ..common import get_no_sftp, version_is_minimum
 
@@ -122,9 +122,17 @@ class Helpers:
         else:
             http_server = subprocess.Popen(["python3", "-m", "http.server"])
             assert http_server
-            time.sleep(1)
-            assert (
-                requests.head("http://localhost:8000/%s" % (image)).status_code == 200
+
+            def probe_http_server():
+                assert (
+                    requests.head(f"http://localhost:8000/{image}").status_code == 200
+                )
+
+            redo.retry(
+                probe_http_server,
+                attempts=5,
+                sleeptime=1,
+                retry_exceptions=(requests.exceptions.ConnectionError),
             )
 
         try:
