@@ -354,7 +354,9 @@ def bitbake_variables(request, conversion, sdimg_location):
         os.environ["BUILDDIR"] = sdimg_location
 
     assert os.environ.get("BUILDDIR", False), "BUILDDIR must be set"
-    return get_bitbake_variables(request, "core-image-minimal")
+    return get_bitbake_variables(
+        request, "core-image-minimal", prepared_test_build=None
+    )
 
 
 @pytest.fixture(scope="session")

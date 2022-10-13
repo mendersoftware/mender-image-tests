@@ -393,7 +393,7 @@ def latest_build_artifact(request, builddir, extension, sdimg_location=None):
     return output
 
 
-def get_bitbake_variables(request, target, prepared_test_build=None, export_only=False):
+def get_bitbake_variables(request, target, prepared_test_build, export_only=False):
     lines = []
 
     if request.config.getoption("--test-conversion"):
@@ -404,14 +404,14 @@ def get_bitbake_variables(request, target, prepared_test_build=None, export_only
         current_dir = os.open(".", os.O_RDONLY)
         os.chdir(os.environ["BUILDDIR"])
         if prepared_test_build is not None:
-            env_setup = "cd %s && . oe-init-build-env %s" % (
+            env_setup = "cd %s && . oe-init-build-env %s &&" % (
                 prepared_test_build["bitbake_corebase"],
                 prepared_test_build["build_dir"],
             )
         else:
-            env_setup = "true"
+            env_setup = "flock bitbake.test.lock"
         ps = subprocess.Popen(
-            "%s && bitbake -e %s" % (env_setup, target),
+            "%s bitbake -e %s" % (env_setup, target),
             stdout=subprocess.PIPE,
             shell=True,
             executable="/bin/bash",
@@ -605,17 +605,21 @@ class bitbake_env_from:
     old_env = {}
     old_path = None
     recipe = None
+    prepared_test_build = None
 
-    def __init__(self, request, recipe):
+    def __init__(self, request, recipe, prepared_test_build):
         self.recipe = recipe
         self.request = request
+        self.prepared_test_build = prepared_test_build
 
     def __enter__(self):
         self.setup()
 
     def setup(self):
         if isinstance(self.recipe, str):
-            vars = get_bitbake_variables(self.request, self.recipe, export_only=True)
+            vars = get_bitbake_variables(
+                self.request, self.recipe, self.prepared_test_build, export_only=True
+            )
         else:
             vars = self.recipe
 
