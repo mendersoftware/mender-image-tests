@@ -78,7 +78,7 @@ class Connection:
 
         return args
 
-    def run(self, command, warn=False, hide=False, echo=False, popen=False):
+    def run(self, command, warn=False, hide=False, echo=True, popen=False):
         ssh_command = self.get_connect_args() + [command]
 
         if echo:
