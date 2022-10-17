@@ -93,6 +93,9 @@ class Connection:
             except subprocess.CalledProcessError as e:
                 returncode = e.returncode
                 if returncode != 255:
+                    if not hide:
+                        print(e.stdout.decode())
+                        print(e.stderr.decode())
                     raise
 
             if returncode == 255:
