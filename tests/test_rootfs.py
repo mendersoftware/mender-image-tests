@@ -129,6 +129,16 @@ class TestRootfs:
                     True,
                 )
 
+            self.verify_file_exists(
+                tmpdir,
+                latest_rootfs,
+                "/etc/mender",
+                "artifact_info",
+                expect_to_exist=not version_is_minimum(
+                    bitbake_variables, "mender-client", "3.5.0"
+                ),
+            )
+
     @pytest.mark.only_with_image("ext4", "ext3", "ext2")
     @pytest.mark.min_mender_version("2.5.1")
     def test_expected_files_ext234_mender_connect(
