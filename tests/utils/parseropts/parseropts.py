@@ -25,7 +25,6 @@ def pytest_addoption(parser):
     parser.addoption(
         "--http-server",
         action="store",
-        default="10.0.2.2:8000",
         help="Remote HTTP server containing update image",
     )
     parser.addoption(

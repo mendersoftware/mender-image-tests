@@ -703,7 +703,14 @@ def ssh_priv_key(request):
 
 @pytest.fixture(scope="session")
 def http_server(request):
-    return request.config.getoption("--http-server")
+    if request.config.getoption("--http-server"):
+        if get_worker_count() > 1:
+            raise RuntimeError(
+                "The --http-server argument is incompatible with multiple workers. Please use `-n 1` or disable xdist with `-p no:xdist`."
+            )
+        return request.config.getoption("--http-server")
+    else:
+        return "10.0.2.2:%d" % (8000 + get_worker_index())
 
 
 @pytest.fixture(scope="session")
