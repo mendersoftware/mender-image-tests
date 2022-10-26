@@ -704,8 +704,13 @@ MENDER_STATE_FILES = (
 )
 
 
-def cleanup_mender_state(connection):
+def cleanup_mender_state(request, connection):
     connection.run("rm -f %s" % " ".join(MENDER_STATE_FILES))
+    bootstrap = latest_build_artifact(
+        request, os.environ["BUILDDIR"], ".bootstrap-artifact"
+    )
+    if bootstrap:
+        put_no_sftp(bootstrap, connection, remote="/data/mender/bootstrap.mender")
 
 
 def bootenv_tools(connection):
