@@ -54,10 +54,7 @@ def exclusivity(request):
 
     lock.acquire()
 
-    def release():
-        lock.release()
-
-    request.addfinalizer(release)
+    request.addfinalizer(lock.release)
 
     return lock
 
