@@ -368,7 +368,7 @@ def manual_uboot_commit(conn):
     conn.run(f"{bootenv_set} bootcount 0")
 
 
-def latest_build_artifact(request, builddir, extension, sdimg_location=None):
+def latest_build_artifact(request, builddir, extension):
 
     # Force the builddir to be an absolute path
     builddir = os.path.abspath(builddir)
