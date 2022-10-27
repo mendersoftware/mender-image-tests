@@ -925,7 +925,7 @@ class TestUpdates:
                 f"dd if=/dev/zero of={image_dat.name} bs=1M count=0 seek=16", shell=True
             )
             subprocess.check_call(
-                "mender-artifact write rootfs-image -t {image_type} -n test-update {file_flag} {image_dat.name} -o {image_mender.name}"
+                "mender-artifact write rootfs-image -t %s -n test-update %s %s -o %s"
                 % (image_type, file_flag, image_dat.name, image_mender.name),
                 shell=True,
             )
