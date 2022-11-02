@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright 2021 Northern.tech AS
+# Copyright 2022 Northern.tech AS
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -126,7 +126,7 @@ class TestUpdateModules:
 
     @pytest.mark.min_mender_version("2.7.0")
     def test_single_file_update_module(self, bitbake_variables, connection):
-        """Test the single-file update module, first with a successfull update,
+        """Test the single-file update module, first with a successful update,
         then installing and rolling back another one"""
 
         file_tree = tempfile.mkdtemp()
