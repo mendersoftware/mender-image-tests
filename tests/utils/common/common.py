@@ -14,6 +14,8 @@
 #    limitations under the License.
 
 from distutils.version import LooseVersion
+import fcntl
+import filelock
 import pytest
 import os
 import re
@@ -76,7 +78,7 @@ class Connection:
 
         return args
 
-    def run(self, command, warn=False, hide=False, echo=False, popen=False):
+    def run(self, command, warn=False, hide=False, echo=True, popen=False):
         ssh_command = self.get_connect_args() + [command]
 
         if echo:
@@ -91,6 +93,9 @@ class Connection:
             except subprocess.CalledProcessError as e:
                 returncode = e.returncode
                 if returncode != 255:
+                    if not hide:
+                        print(e.stdout.decode())
+                        print(e.stderr.decode())
                     raise
 
             if returncode == 255:
@@ -109,6 +114,58 @@ class Connection:
 
     def local(self, command, warn=False):
         return subprocess.run(command, shell=True, check=not warn)
+
+
+# Copied from filelock.py. The original code is public domain, so it's ok to
+# relicense. The only change from the original is the usage of LOCK_SH instead
+# of LOCK_EX.
+class ReadFileLock(filelock.BaseFileLock):
+    """
+    Uses the :func:`fcntl.flock` to hard lock the lock file on unix systems.
+    """
+
+    def _acquire(self):
+        open_mode = os.O_RDWR | os.O_CREAT | os.O_TRUNC
+        fd = os.open(self._lock_file, open_mode)
+
+        try:
+            fcntl.flock(fd, fcntl.LOCK_SH | fcntl.LOCK_NB)
+        except (IOError, OSError):
+            os.close(fd)
+        else:
+            self._lock_file_fd = fd
+        return None
+
+    def _release(self):
+        # Do not remove the lockfile:
+        #
+        #   https://github.com/benediktschmitt/py-filelock/issues/31
+        #   https://stackoverflow.com/questions/17708885/flock-removing-locked-file-without-race-condition
+        fd = self._lock_file_fd
+        self._lock_file_fd = None
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)
+        return None
+
+
+WriteFileLock = filelock.FileLock
+
+
+def get_worker_count():
+    count = os.getenv("PYTEST_XDIST_WORKER_COUNT")
+    if count is not None:
+        return int(count)
+    # Default to one worker.
+    return 1
+
+
+def get_worker_index():
+    worker = os.getenv("PYTEST_XDIST_WORKER")
+    if worker is not None:
+        match = re.search("[0-9]+$", worker)
+        return int(match.group(0))
+    # Default to zero = one worker.
+    return 0
 
 
 def _start_qemu(qenv, conn, qemu_wrapper):
@@ -130,6 +187,9 @@ def _start_qemu(qenv, conn, qemu_wrapper):
     """
     env = dict(os.environ)
     env.update(qenv)
+
+    env["PORT_NUMBER"] = str(8822 + get_worker_index())
+    env["VNC_NUMBER"] = str(23 + get_worker_index())
 
     proc = subprocess.Popen([qemu_wrapper], env=env, start_new_session=True)
 
@@ -308,7 +368,7 @@ def manual_uboot_commit(conn):
     conn.run(f"{bootenv_set} bootcount 0")
 
 
-def latest_build_artifact(request, builddir, extension, sdimg_location=None):
+def latest_build_artifact(request, builddir, extension):
 
     # Force the builddir to be an absolute path
     builddir = os.path.abspath(builddir)
@@ -336,7 +396,7 @@ def latest_build_artifact(request, builddir, extension, sdimg_location=None):
     return output
 
 
-def get_bitbake_variables(request, target, prepared_test_build=None, export_only=False):
+def get_bitbake_variables(request, target, prepared_test_build, export_only=False):
     lines = []
 
     if request.config.getoption("--test-conversion"):
@@ -347,14 +407,14 @@ def get_bitbake_variables(request, target, prepared_test_build=None, export_only
         current_dir = os.open(".", os.O_RDONLY)
         os.chdir(os.environ["BUILDDIR"])
         if prepared_test_build is not None:
-            env_setup = "cd %s && . oe-init-build-env %s" % (
+            env_setup = "cd %s && . oe-init-build-env %s &&" % (
                 prepared_test_build["bitbake_corebase"],
                 prepared_test_build["build_dir"],
             )
         else:
-            env_setup = "true"
+            env_setup = "flock bitbake.test.lock"
         ps = subprocess.Popen(
-            "%s && bitbake -e %s" % (env_setup, target),
+            "%s bitbake -e %s" % (env_setup, target),
             stdout=subprocess.PIPE,
             shell=True,
             executable="/bin/bash",
@@ -548,17 +608,21 @@ class bitbake_env_from:
     old_env = {}
     old_path = None
     recipe = None
+    prepared_test_build = None
 
-    def __init__(self, request, recipe):
+    def __init__(self, request, recipe, prepared_test_build):
         self.recipe = recipe
         self.request = request
+        self.prepared_test_build = prepared_test_build
 
     def __enter__(self):
         self.setup()
 
     def setup(self):
         if isinstance(self.recipe, str):
-            vars = get_bitbake_variables(self.request, self.recipe, export_only=True)
+            vars = get_bitbake_variables(
+                self.request, self.recipe, self.prepared_test_build, export_only=True
+            )
         else:
             vars = self.recipe
 
@@ -640,8 +704,13 @@ MENDER_STATE_FILES = (
 )
 
 
-def cleanup_mender_state(connection):
+def cleanup_mender_state(request, connection):
     connection.run("rm -f %s" % " ".join(MENDER_STATE_FILES))
+    bootstrap = latest_build_artifact(
+        request, os.environ["BUILDDIR"], ".bootstrap-artifact"
+    )
+    if bootstrap:
+        put_no_sftp(bootstrap, connection, remote="/data/mender/bootstrap.mender")
 
 
 def bootenv_tools(connection):
@@ -654,7 +723,7 @@ def bootenv_tools(connection):
         return ("fw_printenv", "fw_setenv")
 
 
-def extract_partition(img, number):
+def extract_partition(img, number, dst):
     output = subprocess.Popen(
         ["fdisk", "-l", "-o", "device,start,end", img], stdout=subprocess.PIPE
     )
@@ -676,7 +745,7 @@ def extract_partition(img, number):
         [
             "dd",
             "if=" + img,
-            "of=img%d.fs" % number,
+            f"of={dst}/img{number}.fs",
             "skip=%d" % start,
             "count=%d" % (end - start),
         ]

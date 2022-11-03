@@ -19,7 +19,7 @@ import time
 import requests
 import redo
 
-from ..common import get_no_sftp, version_is_minimum
+from ..common import get_no_sftp, version_is_minimum, get_worker_index
 
 
 class Helpers:
@@ -31,52 +31,6 @@ class Helpers:
         subprocess.call(
             ["s3cmd", "setacl", "s3://mender/temp/%s" % artifact, "--acl-public"]
         )
-
-    @staticmethod
-    def get_env_offsets(bitbake_variables):
-        offsets = [0, 0]
-
-        alignment = int(bitbake_variables["MENDER_PARTITION_ALIGNMENT"])
-        env_size = os.stat(
-            os.path.join(bitbake_variables["DEPLOY_DIR_IMAGE"], "uboot.env")
-        ).st_size
-        offsets[0] = int(bitbake_variables["MENDER_UBOOT_ENV_STORAGE_DEVICE_OFFSET"])
-        offsets[1] = offsets[0] + int(env_size / 2)
-
-        assert offsets[0] % alignment == 0
-        assert offsets[1] % alignment == 0
-
-        return offsets
-
-    @staticmethod
-    def get_env_checksums(bitbake_variables, connection):
-        checksums = [0, 0]
-
-        offsets = Helpers.get_env_offsets(bitbake_variables)
-        dev = bitbake_variables["MENDER_STORAGE_DEVICE"]
-
-        connection.run(
-            "dd if=%s of=/data/env1.tmp bs=1 count=4 skip=%d" % (dev, offsets[0])
-        )
-        connection.run(
-            "dd if=%s of=/data/env2.tmp bs=1 count=4 skip=%d" % (dev, offsets[1])
-        )
-
-        get_no_sftp("/data/env1.tmp", connection)
-        get_no_sftp("/data/env2.tmp", connection)
-        connection.run("rm -f /data/env1.tmp /data/env2.tmp")
-
-        env = open("env1.tmp", "rb")
-        checksums[0] = env.read()
-        env.close()
-        env = open("env2.tmp", "rb")
-        checksums[1] = env.read()
-        env.close()
-
-        os.remove("env1.tmp")
-        os.remove("env2.tmp")
-
-        return checksums
 
     @staticmethod
     def corrupt_middle_byte(fd):
@@ -100,19 +54,16 @@ class Helpers:
         # We want `image` to be in the current directory because we use Python's
         # `http.server`. If it isn't, make a symlink, and relaunch.
         if os.path.dirname(os.path.abspath(image)) != os.getcwd():
-            os.symlink(image, "temp-artifact.mender")
+            temp_artifact = "temp-artifact-%d.mender" % get_worker_index()
+            os.symlink(image, temp_artifact)
             try:
                 return Helpers.install_update(
-                    "temp-artifact.mender",
-                    conn,
-                    http_server,
-                    board_type,
-                    use_s3,
-                    s3_address,
+                    temp_artifact, conn, http_server, board_type, use_s3, s3_address,
                 )
             finally:
-                os.unlink("temp-artifact.mender")
+                os.unlink(temp_artifact)
 
+        port = 8000 + get_worker_index()
         http_server_location = http_server
 
         http_server = None
@@ -120,12 +71,13 @@ class Helpers:
             Helpers.upload_to_s3(image)
             http_server_location = "{}/mender/temp".format(s3_address)
         else:
-            http_server = subprocess.Popen(["python3", "-m", "http.server"])
+            http_server = subprocess.Popen(["python3", "-m", "http.server", str(port)])
             assert http_server
 
             def probe_http_server():
                 assert (
-                    requests.head(f"http://localhost:8000/{image}").status_code == 200
+                    requests.head("http://localhost:%d/%s" % (port, image)).status_code
+                    == 200
                 )
 
             redo.retry(
@@ -144,7 +96,7 @@ class Helpers:
             if http_server:
                 try:
                     status_code = requests.head(
-                        "http://localhost:8000/%s" % (image)
+                        "http://localhost:%d/%s" % (port, image)
                     ).status_code
                     if status_code != 200:
                         print(

@@ -190,23 +190,24 @@ class TestMostPartitionImages:
     def test_device_type(self, bitbake_path, bitbake_variables, latest_part_image):
         """Test that device type file is correctly embedded."""
 
-        try:
+        with make_tempdir() as tmpdir:
             data_part_index = get_data_part_number(latest_part_image)
 
-            extract_partition(latest_part_image, data_part_index)
+            extract_partition(latest_part_image, data_part_index, tmpdir)
 
+            device_type = os.path.join(tmpdir, "device_type")
             subprocess.check_call(
                 [
                     "debugfs",
                     "-R",
-                    "dump -p /mender/device_type device_type",
-                    "img%d.fs" % (data_part_index,),
+                    f"dump -p /mender/device_type {device_type}",
+                    f"{tmpdir}/img{data_part_index}.fs",
                 ]
             )
 
-            assert os.stat("device_type").st_mode & 0o777 == 0o444
+            assert os.stat(device_type).st_mode & 0o777 == 0o444
 
-            fd = open("device_type")
+            fd = open(device_type)
 
             lines = fd.readlines()
             assert len(lines) == 1
@@ -217,33 +218,20 @@ class TestMostPartitionImages:
 
             fd.close()
 
-        except:
-            subprocess.call(["ls", "-l", "device_type"])
-            print("Contents of device_type:")
-            subprocess.call(["cat", "device_type"])
-            raise
-
-        finally:
-            try:
-                os.remove("img%d.fs" % (data_part_index,))
-                os.remove("device_type")
-            except:
-                pass
-
     def test_data_ownership(self, bitbake_path, bitbake_variables, latest_part_image):
         """Test that the owner of files on the data partition is root."""
 
-        try:
+        with make_tempdir() as tmpdir:
             data_part_index = get_data_part_number(latest_part_image)
 
-            extract_partition(latest_part_image, data_part_index)
+            extract_partition(latest_part_image, data_part_index, tmpdir)
 
             def check_dir(dir):
                 ls = subprocess.Popen(
                     [
                         "debugfs",
                         "-R" "ls -l -p %s" % dir,
-                        "img%d.fs" % (data_part_index,),
+                        f"{tmpdir}/img{data_part_index}.fs",
                     ],
                     stdout=subprocess.PIPE,
                 )
@@ -277,18 +265,12 @@ class TestMostPartitionImages:
 
             check_dir("/")
 
-        finally:
-            try:
-                os.remove("img%d.fs" % (data_part_index,))
-            except:
-                pass
-
     def test_fstab_correct(self, bitbake_path, bitbake_variables, latest_part_image):
         with make_tempdir() as tmpdir:
             old_cwd_fd = os.open(".", os.O_RDONLY)
             os.chdir(tmpdir)
             try:
-                extract_partition(latest_part_image, 2)
+                extract_partition(latest_part_image, 2, ".")
                 subprocess.check_call(
                     ["debugfs", "-R", "dump -p /etc/fstab fstab", "img2.fs"]
                 )
@@ -305,7 +287,7 @@ class TestMostPartitionImages:
             old_cwd_fd = os.open(".", os.O_RDONLY)
             os.chdir(tmpdir)
             try:
-                extract_partition(latest_part_image, 1)
+                extract_partition(latest_part_image, 1, ".")
                 for env_name in ["mender_grubenv1", "mender_grubenv2"]:
                     subprocess.check_call(
                         [
@@ -340,7 +322,7 @@ class TestMostPartitionImages:
             try:
                 data_part_number = get_data_part_number(latest_part_image)
 
-                extract_partition(latest_part_image, data_part_number)
+                extract_partition(latest_part_image, data_part_number, ".")
 
                 subprocess.check_call(
                     [
@@ -369,7 +351,7 @@ class TestMostPartitionImages:
             try:
                 data_part_number = get_data_part_number(latest_part_image)
 
-                extract_partition(latest_part_image, data_part_number)
+                extract_partition(latest_part_image, data_part_number, ".")
 
                 output = subprocess.check_output(
                     ["debugfs", "-R", "ls -l -p /", f"img{data_part_number}.fs"]
@@ -428,11 +410,11 @@ class TestAllPartitionImages:
                 ["ls", "-l", tmp_artifact.name]
             ).decode()
 
-        extract_partition(latest_part_image, 2)
-        try:
+        with make_tempdir() as tmpdir:
+            extract_partition(latest_part_image, 2, tmpdir)
             bytes_read = 0
             hash = hashlib.md5()
-            with open("img2.fs", "rb") as fd:
+            with open(f"{tmpdir}/img2.fs", "rb") as fd:
                 while bytes_read < size:
                     buf = fd.read(min(size - bytes_read, bufsize))
                     if len(buf) == 0:
@@ -440,9 +422,7 @@ class TestAllPartitionImages:
                     bytes_read += len(buf)
                     hash.update(buf)
                 part_image_hash = hash.hexdigest()
-            img_ls = subprocess.check_output(["ls", "-l", "img2.fs"]).decode()
-        finally:
-            os.remove("img2.fs")
+            img_ls = subprocess.check_output(["ls", "-l", f"{tmpdir}/img2.fs"]).decode()
 
         assert artifact_hash == part_image_hash, "Artifact:\n%s\nImage:\n%s" % (
             artifact_ls,

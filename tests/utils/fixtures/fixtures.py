@@ -17,14 +17,16 @@ import os
 import shutil
 import time
 import errno
-import tempfile
 import subprocess
+import tempfile
 from pathlib import Path
 
 import pytest
 from ..common import (
     build_image,
     Connection,
+    ReadFileLock,
+    WriteFileLock,
     manual_uboot_commit,
     latest_build_artifact,
     run_verbose,
@@ -33,6 +35,8 @@ from ..common import (
     get_local_conf_orig_path,
     get_bblayers_conf_path,
     get_bblayers_conf_orig_path,
+    get_worker_count,
+    get_worker_index,
     start_qemu_block_storage,
     start_qemu_flash,
     get_no_sftp,
@@ -41,15 +45,29 @@ from ..common import (
 )
 
 
+@pytest.fixture(scope="function", autouse=True)
+def exclusivity(request):
+    if request.node.get_closest_marker("exclusive"):
+        lock = WriteFileLock("exclusive.test.lock")
+    else:
+        lock = ReadFileLock("exclusive.test.lock")
+
+    lock.acquire()
+
+    request.addfinalizer(lock.release)
+
+    return lock
+
+
 def config_host(host):
     host_info = host.split(":")
 
     if len(host_info) == 2:
         return host_info[0], int(host_info[1])
     elif len(host_info) == 1:
-        return host_info[0], 8822
+        return host_info[0], 8822 + get_worker_index()
     else:
-        return "localhost", 8822
+        return "localhost", 8822 + get_worker_index()
 
 
 def connection_factory(request, user, host, ssh_priv_key):
@@ -175,6 +193,11 @@ def setup_board(
 ):
 
     print("board type: ", board_type)
+
+    worker_count = get_worker_count()
+    assert (
+        "qemu" in board_type or worker_count == 1
+    ), "Only QEMU is supported when using multiple workers"
 
     if "qemu" in board_type:
         image_dir = build_image_fn()
@@ -303,16 +326,18 @@ def successful_image_update_mender(request, build_image_fn):
 
     latest_mender_image = latest_build_artifact(request, build_image_fn(), ".mender")
 
-    shutil.copy(latest_mender_image, "successful_image_update.mender")
+    artifact_file = tempfile.NamedTemporaryFile(suffix=".mender")
 
-    print("Copying '%s' to 'successful_image_update.mender'" % latest_mender_image)
+    shutil.copy(latest_mender_image, artifact_file.name)
 
-    def cleanup_image_dat():
-        os.remove("successful_image_update.mender")
+    print("Copying '%s' to '%s'" % (latest_mender_image, artifact_file.name))
 
-    request.addfinalizer(cleanup_image_dat)
+    def cleanup():
+        artifact_file.close()
 
-    return "successful_image_update.mender"
+    request.addfinalizer(cleanup)
+
+    return artifact_file.name
 
 
 #
@@ -326,19 +351,28 @@ def bitbake_variables(request, conversion, sdimg_location):
         os.environ["BUILDDIR"] = sdimg_location
 
     assert os.environ.get("BUILDDIR", False), "BUILDDIR must be set"
-    return get_bitbake_variables(request, "core-image-minimal")
+    return get_bitbake_variables(
+        request, "core-image-minimal", prepared_test_build=None
+    )
 
 
 @pytest.fixture(scope="session")
-def bitbake_path(request, conversion):
+def bitbake_path(request, conversion, prepared_test_build_base):
     """Fixture that enables the PATH we need for our testing tools."""
 
     old_path = os.environ["PATH"]
 
     if not conversion:
-        run_verbose("bitbake -c prepare_recipe_sysroot mender-test-dependencies")
+        build_image(
+            prepared_test_build_base["build_dir"],
+            prepared_test_build_base["bitbake_corebase"],
+            "mender-test-dependencies",
+            target="-c prepare_recipe_sysroot mender-test-dependencies",
+        )
         bb_testing_variables = get_bitbake_variables(
-            request, "mender-test-dependencies"
+            request,
+            "mender-test-dependencies",
+            prepared_test_build=prepared_test_build_base,
         )
         os.environ["PATH"] = bb_testing_variables["PATH"] + ":" + os.environ["PATH"]
 
@@ -384,9 +418,15 @@ def prepared_test_build_base(
         return {"build_dir": None, "bitbake_corebase": None}
 
     if no_tmp_build_dir:
+        worker_count = get_worker_count()
+        assert (
+            worker_count == 1
+        ), "Using multiple workers is not compatible with the --no-tmp-build-dir argument. Either remove the argument, set worker count to 1 (`-n 1`), or disable xdist altogether (`-p no:xdist`)."
         build_dir = os.environ["BUILDDIR"]
     else:
-        build_dir = tempfile.mkdtemp(prefix="test-build-", dir=os.environ["BUILDDIR"])
+        build_dir = os.path.join(
+            os.environ["BUILDDIR"], "test-build-%d" % get_worker_index()
+        )
 
     local_conf = get_local_conf_path(build_dir)
     local_conf_orig = get_local_conf_orig_path(build_dir)
@@ -644,7 +684,8 @@ def not_with_mender_feature(request, bitbake_variables):
 
 @pytest.fixture(scope="session")
 def host(request):
-    return request.config.getoption("--host")
+    host, port = request.config.getoption("--host").split(":")
+    return "%s:%s" % (host, str(int(port) + get_worker_index()))
 
 
 @pytest.fixture(scope="session")
@@ -659,7 +700,14 @@ def ssh_priv_key(request):
 
 @pytest.fixture(scope="session")
 def http_server(request):
-    return request.config.getoption("--http-server")
+    if request.config.getoption("--http-server"):
+        if get_worker_count() > 1:
+            raise RuntimeError(
+                "The --http-server argument is incompatible with multiple workers. Please use `-n 1` or disable xdist with `-p no:xdist`."
+            )
+        return request.config.getoption("--http-server")
+    else:
+        return "10.0.2.2:%d" % (8000 + get_worker_index())
 
 
 @pytest.fixture(scope="session")

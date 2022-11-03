@@ -25,7 +25,6 @@ def pytest_addoption(parser):
     parser.addoption(
         "--http-server",
         action="store",
-        default="10.0.2.2:8000",
         help="Remote HTTP server containing update image",
     )
     parser.addoption(
@@ -113,6 +112,10 @@ def pytest_configure(config):
     # Register the plugins markers as per
     # https://pytest.org/en/latest/how-to/writing_plugins.html#registering-custom-markers
     #
+    config.addinivalue_line(
+        "markers",
+        "exclusive: indicate that this test will run in isolation, not in parallel with others",
+    )
     config.addinivalue_line(
         "markers",
         "min_mender_version: indicate lowest Mender version for which the test will run",
