@@ -13,7 +13,7 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-from distutils.version import LooseVersion
+import packaging.version
 import fcntl
 import filelock
 import pytest
@@ -674,15 +674,13 @@ def version_is_minimum(bitbake_variables, component, min_version):
         version = "master"
 
     try:
-        if LooseVersion(min_version) > LooseVersion(version):
-            return False
-        else:
-            return True
-    except TypeError:
-        # Type error indicates that 'version' is likely a string (branch
-        # name). For now we just default to always consider them higher than the
-        # minimum version.
+        version_parsed = packaging.version.Version(version)
+    except packaging.version.InvalidVersion:
+        # Indicates that 'version' is likely a string (branch name).
+        # Always consider them higher than the minimum version.
         return True
+
+    return version_parsed >= packaging.version.Version(min_version)
 
 
 @contextmanager
