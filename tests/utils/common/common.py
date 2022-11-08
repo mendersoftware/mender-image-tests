@@ -69,6 +69,8 @@ class Connection:
                 "-o",
                 f"ConnectTimeout={self.connect_timeout}",
                 "-o",
+                "ServerAliveInterval=60",
+                "-o",
                 "UserKnownHostsFile=/dev/null",
                 "-o",
                 "StrictHostKeyChecking=no",
