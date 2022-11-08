@@ -23,11 +23,9 @@ import subprocess
 import time
 import tempfile
 import shutil
-import signal
 import sys
 
 from contextlib import contextmanager
-import traceback
 
 
 class Result:
