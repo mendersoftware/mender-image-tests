@@ -711,6 +711,14 @@ def cleanup_mender_state(request, connection):
         put_no_sftp(bootstrap, connection, remote="/data/mender/bootstrap.mender")
 
 
+def qemu_system_time(connection):
+    """Returns an integer representing the number of seconds since the epoch on
+    the QEMU host behind the :connection
+
+    """
+    return int(connection.run("date +%s").stdout)
+
+
 def bootenv_tools(connection):
     """Returns a tuple containing the print and set tools of the current bootloader."""
 
