@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright 2022 Northern.tech AS
+# Copyright 2023 Northern.tech AS
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -16,6 +16,8 @@
 import pytest
 
 
+@pytest.mark.platform_test
+@pytest.mark.software_test
 @pytest.mark.only_with_image("uefiimg")
 @pytest.mark.usefixtures("setup_board")
 class TestSecureBoot:

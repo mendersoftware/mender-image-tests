@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright 2022 Northern.tech AS
+# Copyright 2023 Northern.tech AS
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -77,6 +77,7 @@ def get_data_part_number(disk_image):
         return 4
 
 
+@pytest.mark.platform_test
 @pytest.mark.only_with_image("sdimg", "uefiimg")
 @pytest.mark.min_mender_version("1.0.0")
 class TestMostPartitionImages:
@@ -374,6 +375,7 @@ class TestMostPartitionImages:
                 os.close(old_cwd_fd)
 
 
+@pytest.mark.platform_test
 @pytest.mark.only_with_image("sdimg", "uefiimg", "biosimg", "gptimg")
 @pytest.mark.min_mender_version("1.0.0")
 class TestAllPartitionImages:

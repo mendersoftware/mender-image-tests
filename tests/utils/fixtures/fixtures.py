@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright 2020 Northern.tech AS
+# Copyright 2023 Northern.tech AS
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -770,3 +770,25 @@ def commercial_test(request, bitbake_variables):
     mark = request.node.get_closest_marker("commercial")
     if mark is not None and not request.config.getoption("--commercial-tests"):
         pytest.skip("Tests of commercial features are disabled.")
+
+
+@pytest.fixture(scope="function", autouse=True)
+def platform_or_software_test(request):
+    mark_platform = request.node.get_closest_marker("platform_test")
+    mark_software = request.node.get_closest_marker("software_test")
+    if mark_platform is None and mark_software is None:
+        pytest.fail(
+            (
+                "%s must be marked with @pytest.mark.platform_test, @pytest.mark.software_test,"
+                + "or both."
+            )
+            % str(request.node)
+        )
+
+    if mark_platform and mark_software:
+        # Always run
+        pass
+    elif mark_platform and not request.config.getoption("--platform-tests"):
+        pytest.skip("Platform tests are disabled.")
+    elif mark_software and not request.config.getoption("--software-tests"):
+        pytest.skip("Software tests are disabled.")

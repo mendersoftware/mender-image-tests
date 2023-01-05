@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright 2022 Northern.tech AS
+# Copyright 2023 Northern.tech AS
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -72,6 +72,7 @@ class SignatureCase:
         self.success = success
 
 
+@pytest.mark.software_test
 @pytest.mark.usefixtures("setup_board", "bitbake_path")
 class TestUpdates:
     @pytest.mark.min_mender_version("1.0.0")
