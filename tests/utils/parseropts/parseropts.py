@@ -112,12 +112,23 @@ def pytest_addoption(parser):
         action="store_true",
         help="Enable tests of commercial features",
     )
-
     parser.addoption(
         "--hardware-testing",
         action="store_true",
         default=False,
         help="Run the test with real hardware",
+    )
+    parser.addoption(
+        "--no-cross-platform-tests",
+        action="store_true",
+        default=False,
+        help="Do not run platform agnostic tests",
+    )
+    parser.addoption(
+        "--only-cross-platform-tests",
+        action="store_true",
+        default=False,
+        help="Run platform agnostic tests only",
     )
 
 
@@ -160,3 +171,4 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "not_for_machine: exclude only for the given machine"
     )
+    config.addinivalue_line("markers", "cross_platform: platform agnostic test")

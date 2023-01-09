@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright 2022 Northern.tech AS
+# Copyright 2023 Northern.tech AS
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -187,6 +187,7 @@ class TestMostPartitionImages:
         assert parts_end[3] <= total_size
         assert parts_end[3] >= total_size - part_overhead
 
+    @pytest.mark.cross_platform
     def test_device_type(self, bitbake_path, bitbake_variables, latest_part_image):
         """Test that device type file is correctly embedded."""
 
@@ -218,6 +219,7 @@ class TestMostPartitionImages:
 
             fd.close()
 
+    @pytest.mark.cross_platform
     def test_data_ownership(self, bitbake_path, bitbake_variables, latest_part_image):
         """Test that the owner of files on the data partition is root."""
 
@@ -312,6 +314,7 @@ class TestMostPartitionImages:
                 os.fchdir(old_cwd_fd)
                 os.close(old_cwd_fd)
 
+    @pytest.mark.cross_platform
     @pytest.mark.min_yocto_version("warrior")
     def test_split_mender_conf(
         self, bitbake_path, bitbake_variables, latest_part_image
@@ -341,6 +344,7 @@ class TestMostPartitionImages:
                 os.fchdir(old_cwd_fd)
                 os.close(old_cwd_fd)
 
+    @pytest.mark.cross_platform
     @pytest.mark.min_mender_version("2.6.0")
     def test_expected_data_dirs(
         self, conversion, bitbake_path, bitbake_variables, latest_part_image

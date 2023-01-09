@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright 2020 Northern.tech AS
+# Copyright 2023 Northern.tech AS
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -67,13 +67,14 @@ class TestRootfs:
         )
         assert os.access(os.path.join(tmpdir, filename), os.X_OK)
 
+    @pytest.mark.cross_platform
     @pytest.mark.only_with_mender_feature("mender-client-install")
     @pytest.mark.only_with_image("ext4", "ext3", "ext2")
     @pytest.mark.min_mender_version("2.5.0")
     def test_expected_files_ext234(
         self, bitbake_path, bitbake_variables, latest_rootfs
     ):
-        """Test mender client expected files"""
+        """Test fstab contents and mender client expected files"""
 
         with make_tempdir() as tmpdir:
             subprocess.check_call(
@@ -139,6 +140,7 @@ class TestRootfs:
                 ),
             )
 
+    @pytest.mark.cross_platform
     @pytest.mark.only_with_image("ext4", "ext3", "ext2")
     @pytest.mark.min_mender_version("2.5.1")
     def test_expected_files_ext234_mender_connect(
@@ -181,6 +183,7 @@ class TestRootfs:
                 assert "ShellCommand" in mender_connect_vars, mender_connect_vars
                 assert "User" in mender_connect_vars, mender_connect_vars
 
+    @pytest.mark.cross_platform
     @pytest.mark.only_with_image("ext4", "ext3", "ext2")
     @pytest.mark.min_mender_version("2.6.0")
     def test_expected_files_ext234_mender_configure(
@@ -246,6 +249,7 @@ class TestRootfs:
             assert "Type: symlink" in output
             assert 'Fast link dest: "/data/mender-configure"' in output
 
+    @pytest.mark.cross_platform
     @pytest.mark.only_with_image("ext4", "ext3", "ext2")
     @pytest.mark.min_mender_version("3.1.0")
     def test_expected_files_ext234_mender_monitor(
@@ -273,7 +277,7 @@ class TestRootfs:
     @pytest.mark.only_with_image("ubifs")
     @pytest.mark.min_mender_version("1.2.0")
     def test_expected_files_ubifs(self, bitbake_path, bitbake_variables, latest_ubifs):
-        """Test that artifact_info file is correctly embedded."""
+        """Test fstab contents on UBI File System."""
 
         with make_tempdir() as tmpdir:
             # NOTE: ubireader_extract_files can keep permissions only if
