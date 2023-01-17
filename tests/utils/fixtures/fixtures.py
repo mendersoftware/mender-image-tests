@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright 2020 Northern.tech AS
+# Copyright 2023 Northern.tech AS
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -194,17 +194,14 @@ def setup_board(
 
     print("board type: ", board_type)
 
-    worker_count = get_worker_count()
-    assert (
-        "qemu" in board_type or worker_count == 1
-    ), "Only QEMU is supported when using multiple workers"
-
     if "qemu" in board_type:
         image_dir = build_image_fn()
         return setup_qemu(request, qemu_wrapper, image_dir, session_connection)
     elif "raspberrypi4" in board_type and request.config.getoption(
         "--hardware-testing"
     ):
+        worker_count = get_worker_count()
+        assert worker_count == 1, "Only QEMU is supported when using multiple workers"
         return setup_hardware_test_board(request, session_connection)
     elif conversion:
         pytest.skip("Skip non-qemu platforms for mender-convert")
