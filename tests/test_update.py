@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright 2022 Northern.tech AS
+# Copyright 2023 Northern.tech AS
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -768,6 +768,8 @@ class TestUpdates:
                         connection.run(
                             "cp -L /data/etc/mender/mender.conf.bak $(realpath /etc/mender/mender.conf)"
                         )
+                    else:
+                        connection.run("rm -f $(realpath /etc/mender/mender.conf)")
                     if sig_key:
                         connection.run(
                             "rm -f /etc/mender/%s" % os.path.basename(sig_key.public)
