@@ -767,3 +767,14 @@ def commercial_test(request, bitbake_variables):
     mark = request.node.get_closest_marker("commercial")
     if mark is not None and not request.config.getoption("--commercial-tests"):
         pytest.skip("Tests of commercial features are disabled.")
+
+
+@pytest.fixture(scope="function", autouse=True)
+def cross_platform_test(request):
+    mark = request.node.get_closest_marker("cross_platform")
+    option_no = request.config.getoption("--no-cross-platform-tests")
+    option_only = request.config.getoption("--only-cross-platform-tests")
+    if mark and option_no:
+        pytest.skip("Not running cross-platform tests.")
+    if not mark and option_only:
+        pytest.skip("Running only cross-platform tests.")

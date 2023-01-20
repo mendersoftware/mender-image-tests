@@ -174,6 +174,7 @@ class TestUpdates:
             assert output.find(active_before) >= 0
             assert output.find(passive_before) < 0
 
+    @pytest.mark.cross_platform
     @pytest.mark.min_mender_version("1.0.0")
     def test_too_big_image_update(self, bitbake_variables, connection):
 
@@ -586,6 +587,7 @@ class TestUpdates:
             ),
         ],
     )
+    @pytest.mark.cross_platform
     @pytest.mark.min_mender_version("1.1.0")
     def test_signed_updates(self, sig_case, bitbake_variables, connection):
         """Test various combinations of signed and unsigned, present and non-
@@ -985,6 +987,7 @@ class TestUpdates:
                     )
                     connection.run("rm -f /data/old_env%d" % i)
 
+    @pytest.mark.cross_platform
     @pytest.mark.min_mender_version("2.3.1")
     def test_standalone_update_rollback(self, bitbake_variables, connection):
         """Test that the rollback state on the active partition does roll back to the
