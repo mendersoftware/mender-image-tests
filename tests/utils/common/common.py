@@ -673,6 +673,11 @@ def version_is_minimum(bitbake_variables, component, min_version):
     if version is None:
         version = "master"
 
+    if version.endswith(".x-git%"):
+        # Assume that this is the highest version in the N.M.x series. The library can't parse the
+        # string, so replace with a numbered version.
+        version = version[: -len(".x-git%")] + ".999"
+
     try:
         version_parsed = packaging.version.Version(version)
     except packaging.version.InvalidVersion:
