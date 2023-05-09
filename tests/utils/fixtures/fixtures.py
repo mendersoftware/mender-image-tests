@@ -14,6 +14,7 @@
 #    limitations under the License.
 
 import os
+import signal
 import shutil
 import time
 import errno
@@ -108,6 +109,15 @@ def connection(request, session_connection):
     return session_connection
 
 
+def pid_exists(pid):
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    else:
+        return True
+
+
 def setup_qemu(request, qemu_wrapper, build_dir, conn):
     latest_sdimg = latest_build_artifact(request, build_dir, ".sdimg")
     latest_uefiimg = latest_build_artifact(request, build_dir, ".uefiimg")
@@ -144,6 +154,7 @@ def setup_qemu(request, qemu_wrapper, build_dir, conn):
     # cases more predictable.
     def qemu_finalizer():
         def qemu_finalizer_impl(conn):
+            shutdown_timeout_s = 30
             # Try clearing firmware variables
             try:
                 manual_uboot_commit(conn)
@@ -155,14 +166,20 @@ def setup_qemu(request, qemu_wrapper, build_dir, conn):
                 conn.run("poweroff")
                 halt_time = time.time()
                 # Wait up to 30 seconds for shutdown.
-                while halt_time + 30 > time.time() and qemu.poll() is None:
+                while (
+                    halt_time + shutdown_timeout_s > time.time() and qemu.poll() is None
+                ):
                     time.sleep(1)
             except:
                 pass
 
             # Terminate qemu
             try:
-                qemu.terminate()
+                os.killpg(os.getpgid(qemu.pid), signal.SIGTERM)
+                while pid_exists(qemu.pid) and shutdown_timeout_s > 0:
+                    time.sleep(1)
+                    os.killpg(os.getpgid(qemu.pid), signal.SIGKILL)
+                    shutdown_timeout_s = shutdown_timeout_s - 1
             except OSError as oserr:
                 # qemu might have exited before we reached this place
                 if oserr.errno == errno.ESRCH:
