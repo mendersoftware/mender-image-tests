@@ -117,35 +117,29 @@ class Connection:
 
 
 # Copied from filelock.py. The original code is public domain, so it's ok to
-# relicense. The only change from the original is the usage of LOCK_SH instead
+# relicense. The main change from the original is the usage of LOCK_SH instead
 # of LOCK_EX.
 class ReadFileLock(filelock.BaseFileLock):
-    """
-    Uses the :func:`fcntl.flock` to hard lock the lock file on unix systems.
-    """
+    """Uses the :func:`fcntl.flock` to hard lock the lock file on unix systems."""
 
-    def _acquire(self):
-        open_mode = os.O_RDWR | os.O_CREAT | os.O_TRUNC
-        fd = os.open(self._lock_file, open_mode)
-
+    def _acquire(self) -> None:
+        open_flags = os.O_RDWR | os.O_CREAT | os.O_TRUNC
+        fd = os.open(self.lock_file, open_flags, self._context.mode)
         try:
             fcntl.flock(fd, fcntl.LOCK_SH | fcntl.LOCK_NB)
         except (IOError, OSError):
             os.close(fd)
         else:
-            self._lock_file_fd = fd
-        return None
+            self._context.lock_file_fd = fd
 
-    def _release(self):
+    def _release(self) -> None:
         # Do not remove the lockfile:
-        #
-        #   https://github.com/benediktschmitt/py-filelock/issues/31
+        #   https://github.com/tox-dev/py-filelock/issues/31
         #   https://stackoverflow.com/questions/17708885/flock-removing-locked-file-without-race-condition
-        fd = self._lock_file_fd
-        self._lock_file_fd = None
+        fd = self._context.lock_file_fd
+        self._context.lock_file_fd = None
         fcntl.flock(fd, fcntl.LOCK_UN)
         os.close(fd)
-        return None
 
 
 WriteFileLock = filelock.FileLock
