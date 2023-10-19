@@ -274,6 +274,20 @@ class TestRootfs:
             assert "Type: symlink" in output
             assert 'Fast link dest: "/data/mender-monitor"' in output
 
+    @pytest.mark.cross_platform
+    @pytest.mark.only_with_image("ext4", "ext3", "ext2")
+    @pytest.mark.min_mender_version("4.0.0")
+    def test_expected_files_ext234_mender_flash(
+        self, bitbake_path, bitbake_variables, latest_rootfs
+    ):
+        """Test mender-flash expected files"""
+
+        with make_tempdir() as tmpdir:
+            # Check whether mender-flash exists in /usr/bin
+            self.verify_file_exists(
+                tmpdir, latest_rootfs, "/usr/bin", "mender-flash", True
+            )
+
     @pytest.mark.only_with_image("ubifs")
     @pytest.mark.min_mender_version("1.2.0")
     def test_expected_files_ubifs(self, bitbake_path, bitbake_variables, latest_ubifs):
