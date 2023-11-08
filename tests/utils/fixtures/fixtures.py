@@ -795,3 +795,35 @@ def cross_platform_test(request):
         pytest.skip("Not running cross-platform tests.")
     if not mark and option_only:
         pytest.skip("Running only cross-platform tests.")
+
+
+@pytest.fixture(scope="session")
+def mender_auth_binary(bitbake_variables):
+    if version_is_minimum(bitbake_variables, "mender", "4.0.0"):
+        return "mender-auth"
+    else:
+        return "mender"
+
+
+@pytest.fixture(scope="session")
+def mender_update_binary(bitbake_variables):
+    if version_is_minimum(bitbake_variables, "mender", "4.0.0"):
+        return "mender-update"
+    else:
+        return "mender"
+
+
+@pytest.fixture(scope="session")
+def mender_auth_service(bitbake_variables):
+    if version_is_minimum(bitbake_variables, "mender", "4.0.0"):
+        return "mender-authd"
+    else:
+        return "mender-client"
+
+
+@pytest.fixture(scope="session")
+def mender_update_service(bitbake_variables):
+    if version_is_minimum(bitbake_variables, "mender", "4.0.0"):
+        return "mender-updated"
+    else:
+        return "mender-client"
