@@ -68,7 +68,7 @@ class TestRootfs:
         assert os.access(os.path.join(tmpdir, filename), os.X_OK)
 
     @pytest.mark.cross_platform
-    @pytest.mark.only_with_mender_feature("mender-client-install")
+    @pytest.mark.only_with_mender_feature("mender-update-install")
     @pytest.mark.only_with_image("ext4", "ext3", "ext2")
     @pytest.mark.min_mender_version("2.5.0")
     def test_expected_files_ext234(
