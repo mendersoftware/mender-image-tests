@@ -31,6 +31,7 @@ from utils.common import (
     reboot,
     run_after_connect,
     signing_key,
+    version_is_minimum,
 )
 from utils.helpers import Helpers
 
@@ -75,7 +76,9 @@ class SignatureCase:
 @pytest.mark.usefixtures("setup_board", "bitbake_path")
 class TestUpdates:
     @pytest.mark.min_mender_version("1.0.0")
-    def test_broken_image_update(self, bitbake_variables, connection):
+    def test_broken_image_update(
+        self, bitbake_variables, connection, mender_update_binary
+    ):
         """Test that an update with a broken filesystem rolls back correctly."""
 
         file_flag = Helpers.get_file_flag(bitbake_variables)
@@ -99,19 +102,23 @@ class TestUpdates:
             )
 
             put_no_sftp(image_mender.name, connection, remote="/var/tmp/image.mender")
-            connection.run("mender install /var/tmp/image.mender")
-            reboot(connection)
+            connection.run(f"{mender_update_binary} install /var/tmp/image.mender")
+            try:
+                reboot(connection)
 
-            # Now qemu is auto-rebooted twice; once to boot the dummy image,
-            # where it fails, and the boot loader auto-reboots a second time
-            # into the original partition.
+                # Now qemu is auto-rebooted twice; once to boot the dummy image,
+                # where it fails, and the boot loader auto-reboots a second time
+                # into the original partition.
 
-            output = run_after_connect("mount", connection)
+                output = run_after_connect("mount", connection)
 
-            # The update should have reverted to the original active partition,
-            # since the image was bogus.
-            assert output.find(active_before) >= 0
-            assert output.find(passive_before) < 0
+                # The update should have reverted to the original active partition,
+                # since the image was bogus.
+                assert output.find(active_before) >= 0
+                assert output.find(passive_before) < 0
+
+            finally:
+                connection.run(f"{mender_update_binary} rollback")
 
     # We will use mender-artifact to modify an artifact in this test. Because it
     # doesn't support ubifs modifications, disable it for vexpress-qemu-flash.
@@ -126,6 +133,7 @@ class TestUpdates:
         board_type,
         use_s3,
         s3_address,
+        mender_update_binary,
     ):
         """Test that an update with a broken kernel rolls back correctly. This is
         distinct from the test_broken_image_update test, which corrupts the
@@ -155,28 +163,35 @@ class TestUpdates:
             Helpers.install_update(
                 temp_artifact.name,
                 connection,
+                mender_update_binary,
                 http_server,
                 board_type,
                 use_s3,
                 s3_address,
             )
 
-            reboot(connection)
+            try:
+                reboot(connection)
 
-            # Now qemu is auto-rebooted twice; once to boot the dummy image,
-            # where it fails, and the boot loader auto-reboots a second time
-            # into the original partition.
+                # Now qemu is auto-rebooted twice; once to boot the dummy image,
+                # where it fails, and the boot loader auto-reboots a second time
+                # into the original partition.
 
-            output = run_after_connect("mount", connection)
+                output = run_after_connect("mount", connection)
 
-            # The update should have reverted to the original active partition,
-            # since the kernel was missing.
-            assert output.find(active_before) >= 0
-            assert output.find(passive_before) < 0
+                # The update should have reverted to the original active partition,
+                # since the kernel was missing.
+                assert output.find(active_before) >= 0
+                assert output.find(passive_before) < 0
+
+            finally:
+                connection.run(f"{mender_update_binary} rollback")
 
     @pytest.mark.cross_platform
     @pytest.mark.min_mender_version("1.0.0")
-    def test_too_big_image_update(self, bitbake_variables, connection):
+    def test_too_big_image_update(
+        self, bitbake_variables, connection, mender_update_binary
+    ):
 
         file_flag = Helpers.get_file_flag(bitbake_variables)
         image_type = bitbake_variables["MENDER_DEVICE_TYPE"]
@@ -200,12 +215,12 @@ class TestUpdates:
                 remote="/var/tmp/image-too-big.mender",
             )
             output = connection.run(
-                "mender install /var/tmp/image-too-big.mender ; echo 'ret_code=$?'"
+                f"{mender_update_binary} install /var/tmp/image-too-big.mender ; echo ret_code=$?"
             )
 
             assert any(
                 [
-                    "no space left on device" in out
+                    "no space left on device" in out.lower()
                     for out in [output.stderr, output.stdout]
                 ]
             ), output
@@ -221,6 +236,7 @@ class TestUpdates:
         board_type,
         use_s3,
         s3_address,
+        mender_update_binary,
     ):
 
         (active_before, passive_before) = determine_active_passive_part(
@@ -230,6 +246,7 @@ class TestUpdates:
         Helpers.install_update(
             successful_image_update_mender,
             connection,
+            mender_update_binary,
             http_server,
             board_type,
             use_s3,
@@ -272,7 +289,7 @@ class TestUpdates:
         output = connection.run(f"{bootenv_print} mender_boot_part").stdout
         assert output.rstrip("\n") == "mender_boot_part=" + active_after[-1:]
 
-        connection.run("mender commit")
+        connection.run(f"{mender_update_binary} commit")
 
         output = connection.run(f"{bootenv_print} upgrade_available").stdout
         assert output.rstrip("\n") == "upgrade_available=0"
@@ -589,9 +606,24 @@ class TestUpdates:
     )
     @pytest.mark.cross_platform
     @pytest.mark.min_mender_version("1.1.0")
-    def test_signed_updates(self, sig_case, bitbake_variables, connection):
+    def test_signed_updates(
+        self, sig_case, bitbake_variables, connection, mender_update_binary
+    ):
         """Test various combinations of signed and unsigned, present and non-
         present verification keys."""
+
+        if (
+            sig_case.label
+            == "EC, Correctly signed, but header does not match checksum, key present"
+        ):
+            pytest.skip("MEN-6845")
+
+        if sig_case.artifact_version == 2 and version_is_minimum(
+            bitbake_variables, "mender", "4.0.0"
+        ):
+            pytest.skip(
+                "Artifact format version 2 not supported in Mender client 4.0.0 and later"
+            )
 
         with make_tempdir() as tmpdir:
             origdir = os.getcwd()
@@ -714,8 +746,13 @@ class TestUpdates:
                         connection.run('echo "%s" | dd of=%s' % (old_content, passive))
 
                     result = connection.run(
-                        "mender install /data/image.mender", warn=True
+                        f"{mender_update_binary} install /data/image.mender", warn=True
                     )
+
+                    if result.return_code == 0:
+                        # Just reset database for next update. The content is still there, IOW it
+                        # doesn't wipe it, and we can still test it.
+                        connection.run(f"{mender_update_binary} rollback")
 
                     if sig_case.success:
                         if result.return_code != 0:
@@ -913,7 +950,9 @@ class TestUpdates:
     @pytest.mark.only_with_image("sdimg", "uefiimg")
     @pytest.mark.min_mender_version("1.6.0")
     @pytest.mark.min_yocto_version("dunfell")
-    def test_uboot_mender_saveenv_canary(self, bitbake_variables, connection):
+    def test_uboot_mender_saveenv_canary(
+        self, bitbake_variables, connection, mender_update_binary
+    ):
         """Tests that the mender_saveenv_canary works correctly, which tests
         that Mender will not proceed unless the U-Boot boot loader has saved the
         environment."""
@@ -951,7 +990,7 @@ class TestUpdates:
                 # Try to manually remove the canary first.
                 connection.run(f"{bootenv_set} mender_saveenv_canary")
                 result = connection.run(
-                    "mender install /var/tmp/image.mender", warn=True
+                    f"{mender_update_binary} install /var/tmp/image.mender", warn=True
                 )
                 assert (
                     result.return_code != 0
@@ -971,7 +1010,7 @@ class TestUpdates:
                         % (entry[0], int(entry[1], 0), int(entry[2], 0))
                     )
                 result = connection.run(
-                    "mender install /var/tmp/image.mender", warn=True
+                    f"{mender_update_binary} install /var/tmp/image.mender", warn=True
                 )
                 assert (
                     result.return_code != 0
@@ -989,7 +1028,9 @@ class TestUpdates:
 
     @pytest.mark.cross_platform
     @pytest.mark.min_mender_version("2.3.1")
-    def test_standalone_update_rollback(self, bitbake_variables, connection):
+    def test_standalone_update_rollback(
+        self, bitbake_variables, connection, mender_update_binary
+    ):
         """Test that the rollback state on the active partition does roll back to the
         currently running active partition after a failed update.
 
@@ -1030,7 +1071,9 @@ class TestUpdates:
 
             put_no_sftp(image_mender.name, connection, remote="/var/tmp/image.mender")
 
-            res = connection.run("mender install /var/tmp/image.mender", warn=True)
+            res = connection.run(
+                f"{mender_update_binary} install /var/tmp/image.mender", warn=True
+            )
             assert res.return_code != 0
 
             #
