@@ -131,7 +131,7 @@ class TestRootfs:
                 "io.mender.AuthenticationManager.conf",
                 True,
             )
-            if version_is_minimum(bitbake_variables, "mender-client", "3.0.0"):
+            if not version_is_minimum(bitbake_variables, "mender-client", "4.0.0"):
                 self.verify_file_exists(
                     tmpdir,
                     latest_rootfs,
