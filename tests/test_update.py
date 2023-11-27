@@ -218,12 +218,18 @@ class TestUpdates:
                 f"{mender_update_binary} install /var/tmp/image-too-big.mender ; echo ret_code=$?"
             )
 
+            allowed_msgs = ["no space left on device"]
+            if bitbake_variables["MACHINE"] == "vexpress-qemu-flash":
+                # On UBI, we get this message instead because we are not permitted to schedule a
+                # write larger than the device size.
+                allowed_msgs.append("operation not permitted")
             assert any(
                 [
-                    "no space left on device" in out.lower()
+                    any([msg in out.lower() for msg in allowed_msgs])
                     for out in [output.stderr, output.stdout]
                 ]
             ), output
+
             assert "ret_code=0" not in output.stdout, output
 
     @pytest.mark.min_mender_version("1.0.0")
