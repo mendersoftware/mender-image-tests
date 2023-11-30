@@ -618,12 +618,6 @@ class TestUpdates:
         """Test various combinations of signed and unsigned, present and non-
         present verification keys."""
 
-        if (
-            sig_case.label
-            == "EC, Correctly signed, but header does not match checksum, key present"
-        ):
-            pytest.skip("MEN-6845")
-
         if sig_case.artifact_version == 2 and version_is_minimum(
             bitbake_variables, "mender", "4.0.0"
         ):
