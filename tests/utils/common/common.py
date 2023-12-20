@@ -679,6 +679,10 @@ def version_is_minimum(bitbake_variables, component, min_version, recurse=True):
         # string, so replace with a numbered version.
         version = version[: -len(".x-git%")] + ".999"
 
+    if "-build" in version:
+        # Assume it is the final tag.
+        version = version[: version.find("-build")]
+
     try:
         version_parsed = packaging.version.Version(version)
     except packaging.version.InvalidVersion:
