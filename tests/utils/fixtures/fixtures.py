@@ -43,6 +43,7 @@ from ..common import (
     get_no_sftp,
     get_bitbake_variables,
     version_is_minimum,
+    is_cpp_client,
 )
 
 
@@ -799,7 +800,7 @@ def cross_platform_test(request):
 
 @pytest.fixture(scope="session")
 def mender_auth_binary(bitbake_variables):
-    if version_is_minimum(bitbake_variables, "mender", "4.0.0"):
+    if is_cpp_client(bitbake_variables):
         return "mender-auth"
     else:
         return "mender"
@@ -807,7 +808,7 @@ def mender_auth_binary(bitbake_variables):
 
 @pytest.fixture(scope="session")
 def mender_update_binary(bitbake_variables):
-    if version_is_minimum(bitbake_variables, "mender", "4.0.0"):
+    if is_cpp_client(bitbake_variables):
         return "mender-update"
     else:
         return "mender"
@@ -815,7 +816,7 @@ def mender_update_binary(bitbake_variables):
 
 @pytest.fixture(scope="session")
 def mender_auth_service(bitbake_variables):
-    if version_is_minimum(bitbake_variables, "mender", "4.0.0"):
+    if is_cpp_client(bitbake_variables):
         return "mender-authd"
     else:
         return "mender-client"
@@ -823,7 +824,7 @@ def mender_auth_service(bitbake_variables):
 
 @pytest.fixture(scope="session")
 def mender_update_service(bitbake_variables):
-    if version_is_minimum(bitbake_variables, "mender", "4.0.0"):
+    if is_cpp_client(bitbake_variables):
         return "mender-updated"
     else:
         return "mender-client"
