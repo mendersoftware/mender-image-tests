@@ -31,7 +31,7 @@ from utils.common import (
     reboot,
     run_after_connect,
     signing_key,
-    version_is_minimum,
+    is_cpp_client,
 )
 from utils.helpers import Helpers
 
@@ -618,9 +618,7 @@ class TestUpdates:
         """Test various combinations of signed and unsigned, present and non-
         present verification keys."""
 
-        if sig_case.artifact_version == 2 and version_is_minimum(
-            bitbake_variables, "mender", "4.0.0"
-        ):
+        if sig_case.artifact_version == 2 and is_cpp_client(bitbake_variables):
             pytest.skip(
                 "Artifact format version 2 not supported in Mender client 4.0.0 and later"
             )

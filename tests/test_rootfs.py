@@ -22,6 +22,7 @@ import pytest
 from utils.common import (
     make_tempdir,
     version_is_minimum,
+    is_cpp_client,
 )
 
 
@@ -131,7 +132,7 @@ class TestRootfs:
                 "io.mender.AuthenticationManager.conf",
                 True,
             )
-            if not version_is_minimum(bitbake_variables, "mender-client", "4.0.0"):
+            if not is_cpp_client(bitbake_variables):
                 self.verify_file_exists(
                     tmpdir,
                     latest_rootfs,
@@ -149,6 +150,12 @@ class TestRootfs:
                     bitbake_variables, "mender-client", "3.5.0"
                 ),
             )
+
+            if is_cpp_client(bitbake_variables):
+                # Check whether mender-flash exists in /usr/bin
+                self.verify_file_exists(
+                    tmpdir, latest_rootfs, "/usr/bin", "mender-flash", True
+                )
 
     @pytest.mark.cross_platform
     @pytest.mark.only_with_image("ext4", "ext3", "ext2")
@@ -283,20 +290,6 @@ class TestRootfs:
             ).decode()
             assert "Type: symlink" in output
             assert 'Fast link dest: "/data/mender-monitor"' in output
-
-    @pytest.mark.cross_platform
-    @pytest.mark.only_with_image("ext4", "ext3", "ext2")
-    @pytest.mark.min_mender_version("4.0.0")
-    def test_expected_files_ext234_mender_flash(
-        self, bitbake_path, bitbake_variables, latest_rootfs
-    ):
-        """Test mender-flash expected files"""
-
-        with make_tempdir() as tmpdir:
-            # Check whether mender-flash exists in /usr/bin
-            self.verify_file_exists(
-                tmpdir, latest_rootfs, "/usr/bin", "mender-flash", True
-            )
 
     @pytest.mark.only_with_image("ubifs")
     @pytest.mark.min_mender_version("1.2.0")
