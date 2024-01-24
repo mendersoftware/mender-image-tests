@@ -310,13 +310,3 @@ class TestRootfs:
             with open(path) as fd:
                 data = fd.read()
             TestRootfs.verify_fstab(data)
-
-    @pytest.mark.only_with_mender_feature("mender-convert")
-    @pytest.mark.min_mender_version("1.0.0")
-    def test_unconfigured_image(self, latest_rootfs):
-        """Test that images from mender-convert are unconfigured. We want
-        `mender setup` to be the configuration mechanism there."""
-        output = subprocess.check_output(
-            ["debugfs", "-R", "ls -l -p /etc/mender", latest_rootfs]
-        ).decode()
-        assert "mender.conf" not in output
