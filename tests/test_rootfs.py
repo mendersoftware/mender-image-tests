@@ -94,15 +94,20 @@ class TestRootfs:
             output = subprocess.check_output(
                 ["debugfs", "-R", "ls -l -p /data", latest_rootfs], cwd=tmpdir
             ).decode()
+            at_least_one = False
             for line in output.split("\n"):
                 splitted = line.split("/")
                 if len(splitted) <= 1:
                     continue
+
+                at_least_one = True
+
                 # Should only contain "." and "..". In addition, debugfs
                 # sometimes, but not always, returns a strange 0 entry, with
                 # no name, but a "0" in the sixth column. It is not present
                 # when mounting the filesystem.
                 assert splitted[5] == "." or splitted[5] == ".." or splitted[6] == "0"
+            assert at_least_one, "No /data dir on rootfs?"
 
             # Check whether mender exists in /usr/bin
             self.verify_file_exists(
