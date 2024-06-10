@@ -690,6 +690,8 @@ def not_with_mender_feature(request, bitbake_variables):
     if mark is not None:
         features = mark.args
         current = bitbake_variables.get("MENDER_FEATURES", "").strip().split()
+        # For historical reasons we also check in DISTRO_FEATURES.
+        current += bitbake_variables.get("DISTRO_FEATURES", "").strip().split()
         if any([feature in current for feature in features]):
             pytest.skip(
                 "supported distro feature in {} "
