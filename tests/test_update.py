@@ -1086,3 +1086,86 @@ class TestUpdates:
             #
             active = connection.run(f"{bootenv_print} mender_boot_part").stdout
             assert original_partition == active
+
+    @pytest.mark.min_mender_version("4.1.0")
+    def test_rollback_after_commit(
+        self,
+        successful_image_update_mender,
+        bitbake_variables,
+        connection,
+        http_server,
+        board_type,
+        use_s3,
+        s3_address,
+        mender_update_binary,
+    ):
+        """Test that we can roll back even after an ArtifactCommit. See the update module protocol about
+        that state to understand why this is important.
+
+        """
+
+        (active_before, passive_before) = determine_active_passive_part(
+            bitbake_variables, connection
+        )
+
+        Helpers.install_update(
+            successful_image_update_mender,
+            connection,
+            mender_update_binary,
+            http_server,
+            board_type,
+            use_s3,
+            s3_address,
+        )
+
+        bootenv_print, bootenv_set = bootenv_tools(connection)
+
+        output = connection.run(f"{bootenv_print} upgrade_available").stdout
+        assert output.rstrip("\n") == "upgrade_available=1"
+
+        output = connection.run(f"{bootenv_print} mender_boot_part").stdout
+        assert output.rstrip("\n") == "mender_boot_part=" + passive_before[-1:]
+
+        output = connection.run(f"{bootenv_print} mender_boot_part_hex").stdout
+        assert output.rstrip("\n") == "mender_boot_part_hex=" + passive_before[-1:]
+
+        reboot(connection)
+        run_after_connect("true", connection)
+
+        connection.run(f"{mender_update_binary} commit --stop-after ArtifactCommit")
+
+        output = connection.run(f"{bootenv_print} upgrade_available").stdout
+        assert output.rstrip("\n") == "upgrade_available=0"
+
+        output = connection.run(f"{bootenv_print} mender_boot_part").stdout
+        assert output.rstrip("\n") == "mender_boot_part=" + passive_before[-1:]
+
+        output = connection.run(f"{bootenv_print} mender_boot_part_hex").stdout
+        assert output.rstrip("\n") == "mender_boot_part_hex=" + passive_before[-1:]
+
+        connection.run(f"{mender_update_binary} rollback")
+
+        output = connection.run(f"{bootenv_print} upgrade_available").stdout
+        assert output.rstrip("\n") == "upgrade_available=0"
+
+        output = connection.run(f"{bootenv_print} mender_boot_part").stdout
+        assert output.rstrip("\n") == "mender_boot_part=" + active_before[-1:]
+
+        output = connection.run(f"{bootenv_print} mender_boot_part_hex").stdout
+        assert output.rstrip("\n") == "mender_boot_part_hex=" + active_before[-1:]
+
+        # This is just a time saving measure when cleaning up. Since we rolled back, but didn't
+        # reboot, the boot environment doesn't match the mounted root now. But the update we did is
+        # perfectly valid, so instead of wasting time on another reboot, just switch to this rootfs.
+        output = connection.run(
+            f"{bootenv_set} mender_boot_part {passive_before[-1:]}"
+        ).stdout
+        output = connection.run(
+            f"{bootenv_set} mender_boot_part_hex {passive_before[-1:]}"
+        ).stdout
+
+        output = connection.run(f"{bootenv_print} mender_boot_part").stdout
+        assert output.rstrip("\n") == "mender_boot_part=" + passive_before[-1:]
+
+        output = connection.run(f"{bootenv_print} mender_boot_part_hex").stdout
+        assert output.rstrip("\n") == "mender_boot_part_hex=" + passive_before[-1:]
