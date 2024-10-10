@@ -1132,7 +1132,9 @@ class TestUpdates:
         reboot(connection)
         run_after_connect("true", connection)
 
-        connection.run(f"{mender_update_binary} commit --stop-after ArtifactCommit")
+        connection.run(
+            f"{mender_update_binary} commit --stop-before ArtifactCommit_Leave"
+        )
 
         output = connection.run(f"{bootenv_print} upgrade_available").stdout
         assert output.rstrip("\n") == "upgrade_available=0"
