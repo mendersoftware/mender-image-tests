@@ -648,18 +648,6 @@ class bitbake_env_from:
                 os.environ[key] = self.old_env[key]
 
 
-def versions_of_recipe(recipe):
-    """Returns a list of all the versions we have of the given recipe, excluding
-    git recipes."""
-
-    versions = []
-    for entry in os.listdir("../../meta-mender-core/recipes-mender/%s/" % recipe):
-        match = re.match(r"^%s_([1-9][0-9]*\.[0-9]+\.[0-9]+[^.]*)\.bb" % recipe, entry)
-        if match is not None:
-            versions.append(match.group(1))
-    return versions
-
-
 def version_is_minimum(bitbake_variables, component, min_version, recurse=True):
     # A little bit evil to auto-replace behind people's back here, but there are a lot of places
     # where this is used, and we don't want every one of them to handle both recipes.
