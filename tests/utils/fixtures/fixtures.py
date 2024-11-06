@@ -20,6 +20,8 @@ import time
 import errno
 import subprocess
 import tempfile
+import random
+import string
 from pathlib import Path
 
 import pytest
@@ -424,9 +426,13 @@ def build_image_fn(request, conversion, prepared_test_build_base, bitbake_image)
     return img_builder
 
 
-@pytest.fixture(scope="session")
-def prepared_test_build_base(
-    request, conversion, bitbake_variables, no_tmp_build_dir, keep_tmp_build_dir
+def prepared_test_build_base_impl(
+    request,
+    conversion,
+    bitbake_variables,
+    no_tmp_build_dir,
+    keep_tmp_build_dir,
+    path_suffix,
 ):
 
     if conversion:
@@ -439,9 +445,7 @@ def prepared_test_build_base(
         ), "Using multiple workers is not compatible with the --no-tmp-build-dir argument. Either remove the argument, set worker count to 1 (`-n 1`), or disable xdist altogether (`-p no:xdist`)."
         build_dir = os.environ["BUILDDIR"]
     else:
-        build_dir = os.path.join(
-            os.environ["BUILDDIR"], "test-build-%d" % get_worker_index()
-        )
+        build_dir = os.path.join(os.environ["BUILDDIR"], "test-build-%s" % path_suffix)
 
     local_conf = get_local_conf_path(build_dir)
     local_conf_orig = get_local_conf_orig_path(build_dir)
@@ -478,15 +482,53 @@ def prepared_test_build_base(
     return {"build_dir": build_dir, "bitbake_corebase": bitbake_variables["COREBASE"]}
 
 
+@pytest.fixture(scope="session")
+def prepared_test_build_base(
+    request, conversion, bitbake_variables, no_tmp_build_dir, keep_tmp_build_dir
+):
+    return prepared_test_build_base_impl(
+        request,
+        conversion,
+        bitbake_variables,
+        no_tmp_build_dir,
+        keep_tmp_build_dir,
+        str(get_worker_index()),
+    )
+
+
 @pytest.fixture(scope="function")
 def prepared_test_build(prepared_test_build_base):
     """
-    Prepares a separate test build directory where a custom build can be
-    made, which reuses the sstate-cache.
+    Prepares the test build directory where a custom build can be made. It uses the shared state
+    cache. The directory is reused for all tests in the same worker, the conf files being reset
+    for every test.
     """
 
     reset_build_conf(prepared_test_build_base["build_dir"])
     return prepared_test_build_base
+
+
+@pytest.fixture(scope="class")
+def class_scoped_prepared_test_build_base(
+    request, conversion, bitbake_variables, no_tmp_build_dir, keep_tmp_build_dir
+):
+    return prepared_test_build_base_impl(
+        request,
+        conversion,
+        bitbake_variables,
+        no_tmp_build_dir,
+        keep_tmp_build_dir,
+        "class-" + "".join(random.choices(string.ascii_lowercase, k=5)),
+    )
+
+
+@pytest.fixture(scope="function")
+def class_scoped_prepared_test_build(class_scoped_prepared_test_build_base):
+    """
+    Similar to prepared_test_build but the directory is reused only within the same class.
+    """
+    reset_build_conf(class_scoped_prepared_test_build_base["build_dir"])
+    return class_scoped_prepared_test_build_base
 
 
 @pytest.fixture(autouse=True)
