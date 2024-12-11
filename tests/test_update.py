@@ -19,6 +19,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+from pathlib import Path
 
 import pytest
 
@@ -1171,3 +1172,44 @@ class TestUpdates:
 
         output = connection.run(f"{bootenv_print} mender_boot_part_hex").stdout
         assert output.rstrip("\n") == "mender_boot_part_hex=" + passive_before[-1:]
+
+    @pytest.mark.cross_platform
+    @pytest.mark.min_mender_version("4.0.0")
+    def test_standalone_update_from_state_v1(
+        self, bitbake_variables, connection, mender_update_binary
+    ):
+        """Test a successful update from standalone state v1 (Mender Client 4.x) to standalone
+        state v2 (Mender Client 5.x or newer).
+        """
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+
+            # Write v1 standalone state data into a plain text file
+            state_v1_path = Path(tmpdir, "standalone")
+            with open(state_v1_path, "w", encoding="utf-8") as fd:
+                fd.write(
+                    """standalone-state
+{"Version":1,"ArtifactName":"my-hacky-update","ArtifactGroup":"","PayloadTypes": ["single-file"],"ArtifactTypeInfoProvides": {"rootfs-image.single-file.version":"my-hacky-update"},"ArtifactClearsProvides": ["rootfs-image.single-file.*"]}
+"""
+                )
+
+            # Make sure the database is initialized by reading it with show-provides
+            connection.run(f"{mender_update_binary} show-provides")
+
+            # Update the database on the device with the v1 standalone state data
+            database_path = Path(tmpdir, "mender-store")
+            get_no_sftp("/var/lib/mender/mender-store", connection, database_path)
+            subprocess.check_call(
+                ["/usr/bin/mdb_load", "-T", "-f", state_v1_path, "-n", database_path]
+            )
+            put_no_sftp(database_path, connection, "/var/lib/mender/mender-store")
+
+            # Create the working directory for the "ongoing" update
+            connection.run("mkdir -p /var/lib/mender/modules/v3/payloads/0000/tree")
+
+            # The database indicates an ongoing update from v1. Commit it and check provides
+            output = connection.run(f"{mender_update_binary} -l trace commit")
+            assert output.stdout.rstrip("\n") == "Committed."
+            output = connection.run(f"{mender_update_binary} show-provides")
+            assert "rootfs-image.single-file.version=my-hacky-update" in output.stdout
+            assert "artifact_name=my-hacky-update" in output.stdout
