@@ -1184,7 +1184,10 @@ class TestUpdates:
         # When using mender-convert, the mender-update daemon is running,
         # stop it allow us to modify the mdb database
         active_daemon = (
-            0 == connection.run("systemctl is-active mender-updated").return_code
+            0
+            == connection.run(
+                "systemctl is-active mender-updated", warn=True
+            ).return_code
         )
         try:
             if active_daemon:
