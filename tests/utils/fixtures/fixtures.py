@@ -90,15 +90,9 @@ def connection_factory(request, user, host, ssh_priv_key):
     return conn
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session")
 def session_connection(request, user, host, ssh_priv_key):
-    """
-    Fixture for a connection to the build host.
-    Stored in the config object so it can be used in test session finish hook.
-    """
-    session_conn = connection_factory(request, user, host, ssh_priv_key)
-    request.config._session_connection = session_conn
-    return session_conn
+    return connection_factory(request, user, host, ssh_priv_key)
 
 
 @pytest.fixture(scope="function")
