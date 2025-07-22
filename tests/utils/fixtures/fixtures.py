@@ -157,6 +157,17 @@ def setup_qemu(request, qemu_wrapper, build_dir, conn):
     # cases more predictable.
     def qemu_finalizer():
         def qemu_finalizer_impl(conn):
+
+            # collect logs before shutting down
+            try:
+                # TODO: this should be a configurable list of logs to collect
+                log_path = "/tmp/journalctl.log"
+                conn.run(f"journalctl --sync && journalctl --no-pager --all --boot=0 > {log_path}")
+                get_no_sftp(log_path, conn, local=log_path)
+                print("QEMU machine logs collected successfully before shutdown.")
+            except Exception as e:
+                print(f"Failed to collect QEMU logs before shutdown: {e}")
+
             shutdown_timeout_s = 30
             # Try clearing firmware variables
             try:
