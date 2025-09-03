@@ -160,9 +160,12 @@ def setup_qemu(request, qemu_wrapper, build_dir, conn):
 
             # collect logs before shutting down
             try:
-                # TODO: this should be a configurable list of logs to collect
-                log_path = "/tmp/journalctl.log"
-                conn.run(f"journalctl --no-pager > {log_path}")
+                # save log for each test worker so theyx don't overwrite the file for each other
+                worker_index = get_worker_index()
+                log_path = f"/tmp/journalctl-qemu-logs-worker{worker_index}.log"
+                conn.run(
+                    f"journalctl --sync && journalctl --no-pager --all > {log_path}",
+                )
                 get_no_sftp(log_path, conn, local=log_path)
                 print("QEMU machine logs collected successfully before shutdown.")
             except Exception as e:
