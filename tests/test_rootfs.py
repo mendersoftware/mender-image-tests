@@ -146,30 +146,11 @@ class TestRootfs:
                     bitbake_variables, "mender-client", "5.1.0"
                 ),
             )
-            if not is_cpp_client(bitbake_variables):
-                self.verify_file_exists(
-                    tmpdir,
-                    latest_rootfs,
-                    "/usr/share/dbus-1/system.d",
-                    "io.mender.UpdateManager.conf",
-                    True,
-                )
 
+            # Check whether mender-flash exists in /usr/bin
             self.verify_file_exists(
-                tmpdir,
-                latest_rootfs,
-                "/etc/mender",
-                "artifact_info",
-                expect_to_exist=not version_is_minimum(
-                    bitbake_variables, "mender-client", "3.5.0"
-                ),
+                tmpdir, latest_rootfs, "/usr/bin", "mender-flash", True
             )
-
-            if is_cpp_client(bitbake_variables):
-                # Check whether mender-flash exists in /usr/bin
-                self.verify_file_exists(
-                    tmpdir, latest_rootfs, "/usr/bin", "mender-flash", True
-                )
 
     @pytest.mark.cross_platform
     @pytest.mark.only_with_image("ext4", "ext3", "ext2")
