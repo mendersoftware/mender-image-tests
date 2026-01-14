@@ -22,7 +22,6 @@ import pytest
 from utils.common import (
     make_tempdir,
     version_is_minimum,
-    is_cpp_client,
 )
 
 
@@ -71,14 +70,9 @@ class TestRootfs:
     @pytest.mark.cross_platform
     @pytest.mark.only_with_mender_feature("mender-update-install")
     @pytest.mark.only_with_image("ext4", "ext3", "ext2")
-    @pytest.mark.min_mender_version("2.5.0")
+    @pytest.mark.min_mender_version("4.0.0")
     def test_expected_files_ext234(
-        self,
-        bitbake_path,
-        bitbake_variables,
-        mender_auth_binary,
-        mender_update_binary,
-        latest_rootfs,
+        self, bitbake_path, bitbake_variables, latest_rootfs,
     ):
         """Test fstab contents and mender client expected files"""
 
@@ -111,10 +105,10 @@ class TestRootfs:
 
             # Check whether mender exists in /usr/bin
             self.verify_file_exists(
-                tmpdir, latest_rootfs, "/usr/bin", mender_auth_binary, True
+                tmpdir, latest_rootfs, "/usr/bin", "mender-auth", True
             )
             self.verify_file_exists(
-                tmpdir, latest_rootfs, "/usr/bin", mender_update_binary, True
+                tmpdir, latest_rootfs, "/usr/bin", "mender-update", True
             )
 
             # Check whether mender exists in /var/lib
