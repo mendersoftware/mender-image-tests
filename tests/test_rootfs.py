@@ -129,13 +129,22 @@ class TestRootfs:
             assert "Type: symlink" in output
             assert 'Fast link dest: "/data/mender"' in output
 
-            # Check whether D-Bus policy files exist
+            # Check whether D-Bus files exist
             self.verify_file_exists(
                 tmpdir,
                 latest_rootfs,
                 "/usr/share/dbus-1/system.d",
                 "io.mender.AuthenticationManager.conf",
                 True,
+            )
+            self.verify_file_exists(
+                tmpdir,
+                latest_rootfs,
+                "/usr/share/dbus-1/system-services",
+                "io.mender.AuthenticationManager.service",
+                expect_to_exist=version_is_minimum(
+                    bitbake_variables, "mender-client", "5.1.0"
+                ),
             )
             if not is_cpp_client(bitbake_variables):
                 self.verify_file_exists(
