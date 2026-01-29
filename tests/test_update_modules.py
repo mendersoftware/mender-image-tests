@@ -28,17 +28,10 @@ from utils.common import put_no_sftp
 @pytest.mark.min_yocto_version("kirkstone")
 @pytest.mark.usefixtures("setup_board", "bitbake_path")
 class TestUpdateModules:
-    @pytest.mark.min_mender_version("2.0.0")
-    def test_directory_update_module(
-        self, bitbake_variables, connection, mender_update_binary
-    ):
+    @pytest.mark.min_mender_version("4.0.0")
+    def test_directory_update_module(self, bitbake_variables, connection):
         """Test the directory update module, first with a failed update, then a
         successful one, and finally installing and rolling back another one"""
-
-        # Can be removed once Mender client <4.x goes out of support.
-        pre_4_x_compat_arg = ""
-        if mender_update_binary == "mender":
-            pre_4_x_compat_arg = "--no-syslog"
 
         file_tree = tempfile.mkdtemp()
         try:
@@ -55,27 +48,21 @@ class TestUpdateModules:
             )
             subprocess.check_call(cmd, shell=True)
             put_no_sftp(artifact_file, connection, remote="/var/tmp/update.mender")
-            original = connection.run(
-                f"{mender_update_binary} {pre_4_x_compat_arg} show-artifact"
-            ).stdout.strip()
+            original = connection.run("mender-update show-artifact").stdout.strip()
 
             # Block the path with a file, the module should fail
             connection.run("touch /tmp/test_directory_update_module")
             result = connection.run(
-                f"{mender_update_binary} install /var/tmp/update.mender", warn=True
+                "mender-update install /var/tmp/update.mender", warn=True
             )
             assert result.exited == 1
-            output = connection.run(
-                f"{mender_update_binary} {pre_4_x_compat_arg} show-artifact"
-            ).stdout.strip()
+            output = connection.run("mender-update show-artifact").stdout.strip()
             assert output == original
 
             # Remove path block and reinstall
             connection.run("rm -f /tmp/test_directory_update_module")
-            connection.run(f"{mender_update_binary} install /var/tmp/update.mender")
-            output = connection.run(
-                f"{mender_update_binary} {pre_4_x_compat_arg} show-artifact"
-            ).stdout.strip()
+            connection.run("mender-update install /var/tmp/update.mender")
+            output = connection.run("mender-update show-artifact").stdout.strip()
             assert output == original
 
             # Check files
@@ -85,10 +72,8 @@ class TestUpdateModules:
                 ).stdout.strip()
                 assert output == file_and_content
 
-            connection.run(f"{mender_update_binary} commit")
-            output = connection.run(
-                f"{mender_update_binary} {pre_4_x_compat_arg} show-artifact"
-            ).stdout.strip()
+            connection.run("mender-update commit")
+            output = connection.run("mender-update show-artifact").stdout.strip()
             assert output == "update-directory"
 
             # New update
@@ -108,7 +93,7 @@ class TestUpdateModules:
             put_no_sftp(artifact_file, connection, remote="/var/tmp/update.mender")
 
             # Install and check files
-            connection.run(f"{mender_update_binary} install /var/tmp/update.mender")
+            connection.run("mender-update install /var/tmp/update.mender")
             output = connection.run(
                 "ls /tmp/test_directory_update_module"
             ).stdout.strip()
@@ -123,7 +108,7 @@ class TestUpdateModules:
                 assert output == file_and_content
 
             # Rollback and check files
-            connection.run(f"{mender_update_binary} rollback")
+            connection.run("mender-update rollback")
             output = connection.run(
                 "ls /tmp/test_directory_update_module"
             ).stdout.strip()
@@ -136,25 +121,16 @@ class TestUpdateModules:
                     "cat /tmp/test_directory_update_module/%s" % file_and_content
                 ).stdout.strip()
                 assert output == file_and_content
-            output = connection.run(
-                f"{mender_update_binary} {pre_4_x_compat_arg} show-artifact"
-            ).stdout.strip()
+            output = connection.run("mender-update show-artifact").stdout.strip()
             assert output == "update-directory"
 
         finally:
             shutil.rmtree(file_tree)
 
-    @pytest.mark.min_mender_version("2.7.0")
-    def test_single_file_update_module(
-        self, bitbake_variables, connection, mender_update_binary
-    ):
+    @pytest.mark.min_mender_version("4.0.0")
+    def test_single_file_update_module(self, bitbake_variables, connection):
         """Test the single-file update module, first with a successful update,
         then installing and rolling back another one"""
-
-        # Can be removed once Mender client <4.x goes out of support.
-        pre_4_x_compat_arg = ""
-        if mender_update_binary == "mender":
-            pre_4_x_compat_arg = "--no-syslog"
 
         file_tree = tempfile.mkdtemp()
         try:
@@ -173,15 +149,9 @@ class TestUpdateModules:
             put_no_sftp(artifact_file, connection, remote="/var/tmp/update.mender")
 
             # Install the update
-            original = connection.run(
-                f"{mender_update_binary} {pre_4_x_compat_arg} show-artifact"
-            ).stdout.strip()
-            result = connection.run(
-                f"{mender_update_binary} install /var/tmp/update.mender"
-            )
-            output = connection.run(
-                f"{mender_update_binary} {pre_4_x_compat_arg} show-artifact"
-            ).stdout.strip()
+            original = connection.run("mender-update show-artifact").stdout.strip()
+            result = connection.run("mender-update install /var/tmp/update.mender")
+            output = connection.run("mender-update show-artifact").stdout.strip()
             assert output == original
 
             # Check file
@@ -193,10 +163,8 @@ class TestUpdateModules:
             assert output == "777"
 
             # Commit
-            connection.run(f"{mender_update_binary} commit")
-            output = connection.run(
-                f"{mender_update_binary} {pre_4_x_compat_arg} show-artifact"
-            ).stdout.strip()
+            connection.run("mender-update commit")
+            output = connection.run("mender-update show-artifact").stdout.strip()
             assert output == "update-file-v1"
 
             # Create and send a second update
@@ -211,15 +179,9 @@ class TestUpdateModules:
             put_no_sftp(artifact_file, connection, remote="/var/tmp/update.mender")
 
             # Install the update
-            original = connection.run(
-                f"{mender_update_binary} {pre_4_x_compat_arg} show-artifact"
-            ).stdout.strip()
-            result = connection.run(
-                f"{mender_update_binary} install /var/tmp/update.mender"
-            )
-            output = connection.run(
-                f"{mender_update_binary} {pre_4_x_compat_arg} show-artifact"
-            ).stdout.strip()
+            original = connection.run("mender-update show-artifact").stdout.strip()
+            result = connection.run("mender-update install /var/tmp/update.mender")
+            output = connection.run("mender-update show-artifact").stdout.strip()
             assert output == "update-file-v1"
 
             # Check file
@@ -231,10 +193,8 @@ class TestUpdateModules:
             assert output == "600"
 
             # Rollback
-            connection.run(f"{mender_update_binary} rollback")
-            output = connection.run(
-                f"{mender_update_binary} {pre_4_x_compat_arg} show-artifact"
-            ).stdout.strip()
+            connection.run("mender-update rollback")
+            output = connection.run("mender-update show-artifact").stdout.strip()
             assert output == "update-file-v1"
 
             # Check file

@@ -681,15 +681,6 @@ def version_is_minimum(bitbake_variables, component, min_version, recurse=True):
     return version_parsed >= packaging.version.Version(min_version)
 
 
-def is_cpp_client(bitbake_variables):
-    # The actual C++ client tag is going to be `4.0.0`. However, the mender-convert
-    # tests set the versions based on the deb packages which, before final tag,
-    # looks like `3.6.0~something`. Use here 3.6.0 so that the fixtures run correctly.
-    # In any case `4.0.0 > 3.6.0` so it doesn't matter that it is not a real tag.
-
-    return version_is_minimum(bitbake_variables, "mender", "3.6.0")
-
-
 @contextmanager
 def make_tempdir(delete=True):
     """context manager for temporary directories"""

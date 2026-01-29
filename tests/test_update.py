@@ -32,7 +32,6 @@ from utils.common import (
     reboot,
     run_after_connect,
     signing_key,
-    is_cpp_client,
 )
 from utils.helpers import Helpers
 
@@ -76,10 +75,8 @@ class SignatureCase:
 
 @pytest.mark.usefixtures("setup_board", "bitbake_path")
 class TestUpdates:
-    @pytest.mark.min_mender_version("1.0.0")
-    def test_broken_image_update(
-        self, bitbake_variables, connection, mender_update_binary
-    ):
+    @pytest.mark.min_mender_version("4.0.0")
+    def test_broken_image_update(self, bitbake_variables, connection):
         """Test that an update with a broken filesystem rolls back correctly."""
 
         file_flag = Helpers.get_file_flag(bitbake_variables)
@@ -103,7 +100,7 @@ class TestUpdates:
             )
 
             put_no_sftp(image_mender.name, connection, remote="/var/tmp/image.mender")
-            connection.run(f"{mender_update_binary} install /var/tmp/image.mender")
+            connection.run("mender-update install /var/tmp/image.mender")
             try:
                 reboot(connection)
 
@@ -119,12 +116,12 @@ class TestUpdates:
                 assert output.find(passive_before) < 0
 
             finally:
-                connection.run(f"{mender_update_binary} rollback")
+                connection.run("mender-update rollback")
 
     # We will use mender-artifact to modify an artifact in this test. Because it
     # doesn't support ubifs modifications, disable it for vexpress-qemu-flash.
     @pytest.mark.not_for_machine("vexpress-qemu-flash")
-    @pytest.mark.min_mender_version("1.0.0")
+    @pytest.mark.min_mender_version("4.0.0")
     def test_image_update_broken_kernel(
         self,
         bitbake_variables,
@@ -134,7 +131,6 @@ class TestUpdates:
         board_type,
         use_s3,
         s3_address,
-        mender_update_binary,
     ):
         """Test that an update with a broken kernel rolls back correctly. This is
         distinct from the test_broken_image_update test, which corrupts the
@@ -164,7 +160,6 @@ class TestUpdates:
             Helpers.install_update(
                 temp_artifact.name,
                 connection,
-                mender_update_binary,
                 http_server,
                 board_type,
                 use_s3,
@@ -186,13 +181,11 @@ class TestUpdates:
                 assert output.find(passive_before) < 0
 
             finally:
-                connection.run(f"{mender_update_binary} rollback")
+                connection.run("mender-update rollback")
 
     @pytest.mark.cross_platform
-    @pytest.mark.min_mender_version("1.0.0")
-    def test_too_big_image_update(
-        self, bitbake_variables, connection, mender_update_binary
-    ):
+    @pytest.mark.min_mender_version("4.0.0")
+    def test_too_big_image_update(self, bitbake_variables, connection):
 
         file_flag = Helpers.get_file_flag(bitbake_variables)
         image_type = bitbake_variables["MENDER_DEVICE_TYPE"]
@@ -216,7 +209,7 @@ class TestUpdates:
                 remote="/var/tmp/image-too-big.mender",
             )
             output = connection.run(
-                f"{mender_update_binary} install /var/tmp/image-too-big.mender ; echo ret_code=$?"
+                "mender-update install /var/tmp/image-too-big.mender ; echo ret_code=$?"
             )
 
             allowed_msgs = ["no space left on device"]
@@ -233,7 +226,7 @@ class TestUpdates:
 
             assert "ret_code=0" not in output.stdout, output
 
-    @pytest.mark.min_mender_version("1.0.0")
+    @pytest.mark.min_mender_version("4.0.0")
     def test_network_based_image_update(
         self,
         successful_image_update_mender,
@@ -243,7 +236,6 @@ class TestUpdates:
         board_type,
         use_s3,
         s3_address,
-        mender_update_binary,
     ):
 
         (active_before, passive_before) = determine_active_passive_part(
@@ -253,7 +245,6 @@ class TestUpdates:
         Helpers.install_update(
             successful_image_update_mender,
             connection,
-            mender_update_binary,
             http_server,
             board_type,
             use_s3,
@@ -296,7 +287,7 @@ class TestUpdates:
         output = connection.run(f"{bootenv_print} mender_boot_part").stdout
         assert output.rstrip("\n") == "mender_boot_part=" + active_after[-1:]
 
-        connection.run(f"{mender_update_binary} commit")
+        connection.run("mender-update commit")
 
         output = connection.run(f"{bootenv_print} upgrade_available").stdout
         assert output.rstrip("\n") == "upgrade_available=0"
@@ -465,164 +456,13 @@ class TestUpdates:
                 artifact_version=None,
                 success=False,
             ),
-            SignatureCase(
-                label="Not signed, key not present, version 2",
-                signature=False,
-                signature_ok=False,
-                key=False,
-                key_type=None,
-                checksum_ok=True,
-                header_checksum_ok=True,
-                update_written=True,
-                artifact_version=2,
-                success=True,
-            ),
-            SignatureCase(
-                label="RSA, Correctly signed, key present, version 2",
-                signature=True,
-                signature_ok=True,
-                key=True,
-                key_type="RSA",
-                checksum_ok=True,
-                header_checksum_ok=True,
-                update_written=True,
-                artifact_version=2,
-                success=True,
-            ),
-            SignatureCase(
-                label="RSA, Incorrectly signed, key present, version 2",
-                signature=True,
-                signature_ok=False,
-                key=True,
-                key_type="RSA",
-                checksum_ok=True,
-                header_checksum_ok=True,
-                update_written=False,
-                artifact_version=2,
-                success=False,
-            ),
-            SignatureCase(
-                label="RSA, Correctly signed, key not present, version 2",
-                signature=True,
-                signature_ok=True,
-                key=False,
-                key_type="RSA",
-                checksum_ok=True,
-                header_checksum_ok=True,
-                update_written=True,
-                artifact_version=2,
-                success=True,
-            ),
-            SignatureCase(
-                label="RSA, Not signed, key present, version 2",
-                signature=False,
-                signature_ok=False,
-                key=True,
-                key_type="RSA",
-                checksum_ok=True,
-                header_checksum_ok=True,
-                update_written=False,
-                artifact_version=2,
-                success=False,
-            ),
-            SignatureCase(
-                label="RSA, Correctly signed, but checksum wrong, key present, version 2",
-                signature=True,
-                signature_ok=True,
-                key=True,
-                key_type="RSA",
-                checksum_ok=False,
-                header_checksum_ok=True,
-                update_written=True,
-                artifact_version=2,
-                success=False,
-            ),
-            SignatureCase(
-                label="EC, Correctly signed, key present, version 2",
-                signature=True,
-                signature_ok=True,
-                key=True,
-                key_type="EC",
-                checksum_ok=True,
-                header_checksum_ok=True,
-                update_written=True,
-                artifact_version=2,
-                success=True,
-            ),
-            SignatureCase(
-                label="EC, Incorrectly signed, key present, version 2",
-                signature=True,
-                signature_ok=False,
-                key=True,
-                key_type="EC",
-                checksum_ok=True,
-                header_checksum_ok=True,
-                update_written=False,
-                artifact_version=2,
-                success=False,
-            ),
-            SignatureCase(
-                label="EC, Correctly signed, key not present, version 2",
-                signature=True,
-                signature_ok=True,
-                key=False,
-                key_type="EC",
-                checksum_ok=True,
-                header_checksum_ok=True,
-                update_written=True,
-                artifact_version=2,
-                success=True,
-            ),
-            SignatureCase(
-                label="EC, Not signed, key present, version 2",
-                signature=False,
-                signature_ok=False,
-                key=True,
-                key_type="EC",
-                checksum_ok=True,
-                header_checksum_ok=True,
-                update_written=False,
-                artifact_version=2,
-                success=False,
-            ),
-            SignatureCase(
-                label="EC, Correctly signed, but checksum wrong, key present, version 2",
-                signature=True,
-                signature_ok=True,
-                key=True,
-                key_type="EC",
-                checksum_ok=False,
-                header_checksum_ok=True,
-                update_written=True,
-                artifact_version=2,
-                success=False,
-            ),
-            SignatureCase(
-                label="EC, Correctly signed, but header does not match checksum, key present, version 2",
-                signature=True,
-                signature_ok=True,
-                key=True,
-                key_type="EC",
-                checksum_ok=True,
-                header_checksum_ok=False,
-                update_written=False,
-                artifact_version=2,
-                success=False,
-            ),
         ],
     )
     @pytest.mark.cross_platform
-    @pytest.mark.min_mender_version("1.1.0")
-    def test_signed_updates(
-        self, sig_case, bitbake_variables, connection, mender_update_binary
-    ):
+    @pytest.mark.min_mender_version("4.0.0")
+    def test_signed_updates(self, sig_case, bitbake_variables, connection):
         """Test various combinations of signed and unsigned, present and non-
         present verification keys."""
-
-        if sig_case.artifact_version == 2 and is_cpp_client(bitbake_variables):
-            pytest.skip(
-                "Artifact format version 2 not supported in Mender client 4.0.0 and later"
-            )
 
         with make_tempdir() as tmpdir:
             origdir = os.getcwd()
@@ -745,13 +585,13 @@ class TestUpdates:
                         connection.run('echo "%s" | dd of=%s' % (old_content, passive))
 
                     result = connection.run(
-                        f"{mender_update_binary} install /data/image.mender", warn=True
+                        "mender-update install /data/image.mender", warn=True
                     )
 
                     if result.return_code == 0:
                         # Just reset database for next update. The content is still there, IOW it
                         # doesn't wipe it, and we can still test it.
-                        connection.run(f"{mender_update_binary} rollback")
+                        connection.run("mender-update rollback")
 
                     if sig_case.success:
                         if result.return_code != 0:
@@ -947,11 +787,9 @@ class TestUpdates:
 
     @pytest.mark.only_with_mender_feature("mender-uboot")
     @pytest.mark.only_with_image("sdimg", "uefiimg")
-    @pytest.mark.min_mender_version("1.6.0")
+    @pytest.mark.min_mender_version("4.0.0")
     @pytest.mark.min_yocto_version("dunfell")
-    def test_uboot_mender_saveenv_canary(
-        self, bitbake_variables, connection, mender_update_binary
-    ):
+    def test_uboot_mender_saveenv_canary(self, bitbake_variables, connection):
         """Tests that the mender_saveenv_canary works correctly, which tests
         that Mender will not proceed unless the U-Boot boot loader has saved the
         environment."""
@@ -989,7 +827,7 @@ class TestUpdates:
                 # Try to manually remove the canary first.
                 connection.run(f"{bootenv_set} mender_saveenv_canary")
                 result = connection.run(
-                    f"{mender_update_binary} install /var/tmp/image.mender", warn=True
+                    "mender-update install /var/tmp/image.mender", warn=True
                 )
                 assert (
                     result.return_code != 0
@@ -1009,7 +847,7 @@ class TestUpdates:
                         % (entry[0], int(entry[1], 0), int(entry[2], 0))
                     )
                 result = connection.run(
-                    f"{mender_update_binary} install /var/tmp/image.mender", warn=True
+                    "mender-update install /var/tmp/image.mender", warn=True
                 )
                 assert (
                     result.return_code != 0
@@ -1026,10 +864,8 @@ class TestUpdates:
                     connection.run("rm -f /data/old_env%d" % i)
 
     @pytest.mark.cross_platform
-    @pytest.mark.min_mender_version("2.3.1")
-    def test_standalone_update_rollback(
-        self, bitbake_variables, connection, mender_update_binary
-    ):
+    @pytest.mark.min_mender_version("4.0.0")
+    def test_standalone_update_rollback(self, bitbake_variables, connection):
         """Test that the rollback state on the active partition does roll back to the
         currently running active partition after a failed update.
 
@@ -1071,7 +907,7 @@ class TestUpdates:
             put_no_sftp(image_mender.name, connection, remote="/var/tmp/image.mender")
 
             res = connection.run(
-                f"{mender_update_binary} install /var/tmp/image.mender", warn=True
+                "mender-update install /var/tmp/image.mender", warn=True
             )
             assert res.return_code != 0
 
@@ -1098,7 +934,6 @@ class TestUpdates:
         board_type,
         use_s3,
         s3_address,
-        mender_update_binary,
     ):
         """Test that we can roll back even after an ArtifactCommit. See the update module protocol about
         that state to understand why this is important.
@@ -1112,7 +947,6 @@ class TestUpdates:
         Helpers.install_update(
             successful_image_update_mender,
             connection,
-            mender_update_binary,
             http_server,
             board_type,
             use_s3,
@@ -1133,9 +967,7 @@ class TestUpdates:
         reboot(connection)
         run_after_connect("true", connection)
 
-        connection.run(
-            f"{mender_update_binary} commit --stop-before ArtifactCommit_Leave"
-        )
+        connection.run("mender-update commit --stop-before ArtifactCommit_Leave")
 
         output = connection.run(f"{bootenv_print} upgrade_available").stdout
         assert output.rstrip("\n") == "upgrade_available=0"
@@ -1146,7 +978,7 @@ class TestUpdates:
         output = connection.run(f"{bootenv_print} mender_boot_part_hex").stdout
         assert output.rstrip("\n") == "mender_boot_part_hex=" + passive_before[-1:]
 
-        connection.run(f"{mender_update_binary} rollback")
+        connection.run("mender-update rollback")
 
         output = connection.run(f"{bootenv_print} upgrade_available").stdout
         assert output.rstrip("\n") == "upgrade_available=0"
@@ -1175,9 +1007,7 @@ class TestUpdates:
 
     @pytest.mark.cross_platform
     @pytest.mark.min_mender_version("4.0.0")
-    def test_standalone_update_from_state_v1(
-        self, bitbake_variables, connection, mender_update_binary
-    ):
+    def test_standalone_update_from_state_v1(self, bitbake_variables, connection):
         """Test a successful update from standalone state v1 (Mender Client 4.x) to standalone
         state v2 (Mender Client 5.x or newer).
         """
@@ -1204,7 +1034,7 @@ class TestUpdates:
                     )
 
                 # Make sure the database is initialized by reading it with show-provides
-                connection.run(f"{mender_update_binary} show-provides")
+                connection.run("mender-update show-provides")
 
                 # Update the database on the device with the v1 standalone state data
                 database_path = Path(tmpdir, "mender-store")
@@ -1225,9 +1055,9 @@ class TestUpdates:
                 connection.run("mkdir -p /var/lib/mender/modules/v3/payloads/0000/tree")
 
                 # The database indicates an ongoing update from v1. Commit it and check provides
-                output = connection.run(f"{mender_update_binary} -l trace commit")
+                output = connection.run("mender-update -l trace commit")
                 assert output.stdout.rstrip("\n") == "Committed."
-                output = connection.run(f"{mender_update_binary} show-provides")
+                output = connection.run("mender-update show-provides")
                 assert (
                     "rootfs-image.single-file.version=my-hacky-update" in output.stdout
                 )

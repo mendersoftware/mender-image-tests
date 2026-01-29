@@ -50,9 +50,7 @@ class Helpers:
             return "-u"
 
     @staticmethod
-    def install_update(
-        image, conn, mender_update_binary, http_server, board_type, use_s3, s3_address
-    ):
+    def install_update(image, conn, http_server, board_type, use_s3, s3_address):
         # We want `image` to be in the current directory because we use Python's
         # `http.server`. If it isn't, make a symlink, and relaunch.
         if os.path.dirname(os.path.abspath(image)) != os.getcwd():
@@ -60,13 +58,7 @@ class Helpers:
             os.symlink(image, temp_artifact)
             try:
                 return Helpers.install_update(
-                    temp_artifact,
-                    conn,
-                    mender_update_binary,
-                    http_server,
-                    board_type,
-                    use_s3,
-                    s3_address,
+                    temp_artifact, conn, http_server, board_type, use_s3, s3_address,
                 )
             finally:
                 os.unlink(temp_artifact)
@@ -97,7 +89,7 @@ class Helpers:
 
         try:
             output = conn.run(
-                f"{mender_update_binary} install http://{http_server_location}/{image}"
+                f"mender-update install http://{http_server_location}/{image}"
             )
             print("output from rootfs update: ", output.stdout)
         finally:
