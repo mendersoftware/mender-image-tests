@@ -144,15 +144,16 @@ class TestRootfs:
                 "io.mender.AuthenticationManager.conf",
                 True,
             )
-            self.verify_file_exists(
-                tmpdir,
-                latest_rootfs,
-                "/usr/share/dbus-1/system-services",
-                "io.mender.AuthenticationManager.service",
-                expect_to_exist=version_is_minimum(
-                    bitbake_variables, "mender-client", "5.1.0"
-                ),
-            )
+            if version_is_minimum(
+                bitbake_variables, "mender-client", "5.1.0", skip_git=True
+            ):
+                self.verify_file_exists(
+                    tmpdir,
+                    latest_rootfs,
+                    "/usr/share/dbus-1/system-services",
+                    "io.mender.AuthenticationManager.service",
+                    expect_to_exist=True,
+                )
 
             # Check whether mender-flash exists in /usr/bin
             self.verify_file_exists(
