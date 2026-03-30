@@ -58,7 +58,12 @@ class Helpers:
             os.symlink(image, temp_artifact)
             try:
                 return Helpers.install_update(
-                    temp_artifact, conn, http_server, board_type, use_s3, s3_address,
+                    temp_artifact,
+                    conn,
+                    http_server,
+                    board_type,
+                    use_s3,
+                    s3_address,
                 )
             finally:
                 os.unlink(temp_artifact)

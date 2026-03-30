@@ -648,19 +648,28 @@ class bitbake_env_from:
                 os.environ[key] = self.old_env[key]
 
 
-def version_is_minimum(bitbake_variables, component, min_version, recurse=True):
+def version_is_minimum(
+    bitbake_variables, component, min_version, recurse=True, skip_git=False
+):
     # A little bit evil to auto-replace behind people's back here, but there are a lot of places
     # where this is used, and we don't want every one of them to handle both recipes.
     if recurse and (component == "mender" or component == "mender-client"):
         return version_is_minimum(
-            bitbake_variables, "mender", min_version, False
-        ) and version_is_minimum(bitbake_variables, "mender-client", min_version, False)
+            bitbake_variables, "mender", min_version, False, skip_git
+        ) and version_is_minimum(
+            bitbake_variables, "mender-client", min_version, False, skip_git
+        )
 
     version = bitbake_variables.get("PREFERRED_VERSION:pn-%s" % component)
     if version is None:
         version = bitbake_variables.get("PREFERRED_VERSION:%s" % component)
     if version is None:
         version = "master"
+
+    if version.endswith("-git%") and skip_git:
+        # Allow tests to skip version-specific checks, since git recipe versions don't reliably
+        # indicate the actual feature set of the checked-out sources
+        return False
 
     if version.endswith(".x-git%"):
         # Assume that this is the highest version in the N.M.x series. The library can't parse the
