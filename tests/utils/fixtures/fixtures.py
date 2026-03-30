@@ -605,8 +605,7 @@ def min_yocto_version(request, bitbake_variables):
         for i in $(git for-each-ref --format='%%(refname:short)' %s); do
             echo $(git log --oneline $(git merge-base $i HEAD)..HEAD | wc -l) $i
         done | sort -n | head -n1 | awk '{print $2}'
-        """
-            % " ".join(candidates),
+        """ % " ".join(candidates),
             shell=True,
         )
         .strip()

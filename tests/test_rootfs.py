@@ -62,7 +62,12 @@ class TestRootfs:
     @staticmethod
     def verify_file_executable(tmpdir, rootfs, path, filename):
         subprocess.check_call(
-            ["debugfs", "-R", f"dump -p {path}/{filename} {filename}", rootfs,],
+            [
+                "debugfs",
+                "-R",
+                f"dump -p {path}/{filename} {filename}",
+                rootfs,
+            ],
             cwd=tmpdir,
         )
         assert os.access(os.path.join(tmpdir, filename), os.X_OK)
@@ -72,7 +77,10 @@ class TestRootfs:
     @pytest.mark.only_with_image("ext4", "ext3", "ext2")
     @pytest.mark.min_mender_version("4.0.0")
     def test_expected_files_ext234(
-        self, bitbake_path, bitbake_variables, latest_rootfs,
+        self,
+        bitbake_path,
+        bitbake_variables,
+        latest_rootfs,
     ):
         """Test fstab contents and mender client expected files"""
 
@@ -113,12 +121,17 @@ class TestRootfs:
 
             # Check whether mender exists in /var/lib
             self.verify_file_exists(
-                tmpdir, latest_rootfs, "/var/lib", "mender", True,
+                tmpdir,
+                latest_rootfs,
+                "/var/lib",
+                "mender",
+                True,
             )
 
             # Check contents of /var/lib/mender
             output = subprocess.check_output(
-                ["debugfs", "-R", "stat /var/lib/mender", latest_rootfs], cwd=tmpdir,
+                ["debugfs", "-R", "stat /var/lib/mender", latest_rootfs],
+                cwd=tmpdir,
             ).decode()
             assert "Type: symlink" in output
             assert 'Fast link dest: "/data/mender"' in output
@@ -244,7 +257,10 @@ class TestRootfs:
 
             # Check whether mender-configure exists in /var/lib
             self.verify_file_exists(
-                tmpdir, latest_rootfs, "/var/lib", "mender-configure",
+                tmpdir,
+                latest_rootfs,
+                "/var/lib",
+                "mender-configure",
             )
 
             # Check contents of /var/lib/mender-configure
@@ -269,7 +285,10 @@ class TestRootfs:
         with make_tempdir() as tmpdir:
             # Check whether mender-monitor exists in /var/lib
             self.verify_file_exists(
-                tmpdir, latest_rootfs, "/var/lib", "mender-monitor",
+                tmpdir,
+                latest_rootfs,
+                "/var/lib",
+                "mender-monitor",
             )
 
             # Check contents of /var/lib/mender-monitor

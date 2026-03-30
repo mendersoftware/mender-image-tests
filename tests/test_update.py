@@ -80,7 +80,7 @@ class TestUpdates:
         """Test that an update with a broken filesystem rolls back correctly."""
 
         file_flag = Helpers.get_file_flag(bitbake_variables)
-        (active_before, passive_before) = determine_active_passive_part(
+        active_before, passive_before = determine_active_passive_part(
             bitbake_variables, connection
         )
 
@@ -138,7 +138,7 @@ class TestUpdates:
         trigger very different code paths."""
 
         file_flag = Helpers.get_file_flag(bitbake_variables)
-        (active_before, passive_before) = determine_active_passive_part(
+        active_before, passive_before = determine_active_passive_part(
             bitbake_variables, connection
         )
 
@@ -238,7 +238,7 @@ class TestUpdates:
         s3_address,
     ):
 
-        (active_before, passive_before) = determine_active_passive_part(
+        active_before, passive_before = determine_active_passive_part(
             bitbake_variables, connection
         )
 
@@ -270,7 +270,7 @@ class TestUpdates:
         reboot(connection)
 
         run_after_connect("true", connection)
-        (active_after, passive_after) = determine_active_passive_part(
+        active_after, passive_after = determine_active_passive_part(
             bitbake_variables, connection
         )
 
@@ -301,7 +301,7 @@ class TestUpdates:
         reboot(connection)
 
         run_after_connect("true", connection)
-        (active_after, passive_after) = determine_active_passive_part(
+        active_after, passive_after = determine_active_passive_part(
             bitbake_variables, connection
         )
 
@@ -472,7 +472,7 @@ class TestUpdates:
 
                 # mmc mount points are named: /dev/mmcblk0p1
                 # ubi volumes are named: ubi0_1
-                (active, passive) = determine_active_passive_part(
+                active, passive = determine_active_passive_part(
                     bitbake_variables, connection
                 )
                 if passive.startswith("ubi"):
@@ -550,9 +550,9 @@ class TestUpdates:
                     with open("mender.conf") as fd:
                         config = json.load(fd)
                     if sig_case.key:
-                        config[
-                            "ArtifactVerifyKey"
-                        ] = "/data/etc/mender/%s" % os.path.basename(sig_key.public)
+                        config["ArtifactVerifyKey"] = (
+                            "/data/etc/mender/%s" % os.path.basename(sig_key.public)
+                        )
                         put_no_sftp(
                             os.path.join(origdir, sig_key.public),
                             connection,
@@ -723,7 +723,7 @@ class TestUpdates:
         cannot do this, so instead we update both, and use the validity of the
         variables instead as a crude checksum."""
 
-        (active, passive) = determine_active_passive_part(bitbake_variables, connection)
+        active, passive = determine_active_passive_part(bitbake_variables, connection)
 
         # Corrupt the passive partition.
         connection.run("dd if=/dev/zero of=%s bs=1024 count=1024" % passive)
@@ -764,7 +764,7 @@ class TestUpdates:
                 reboot(connection)
                 run_after_connect("true", connection)
 
-                (new_active, new_passive) = determine_active_passive_part(
+                new_active, new_passive = determine_active_passive_part(
                     bitbake_variables, connection
                 )
                 assert new_active == active
@@ -940,7 +940,7 @@ class TestUpdates:
 
         """
 
-        (active_before, passive_before) = determine_active_passive_part(
+        active_before, passive_before = determine_active_passive_part(
             bitbake_variables, connection
         )
 
@@ -1027,11 +1027,9 @@ class TestUpdates:
                 # Write v1 standalone state data into a plain text file
                 state_v1_path = Path(tmpdir, "standalone")
                 with open(state_v1_path, "w", encoding="utf-8") as fd:
-                    fd.write(
-                        """standalone-state
+                    fd.write("""standalone-state
     {"Version":1,"ArtifactName":"my-hacky-update","ArtifactGroup":"","PayloadTypes": ["single-file"],"ArtifactTypeInfoProvides": {"rootfs-image.single-file.version":"my-hacky-update"},"ArtifactClearsProvides": ["rootfs-image.single-file.*"]}
-    """
-                    )
+    """)
 
                 # Make sure the database is initialized by reading it with show-provides
                 connection.run("mender-update show-provides")
