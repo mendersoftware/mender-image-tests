@@ -22,6 +22,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
+import platform
 
 from utils.common import (
     bootenv_tools,
@@ -34,6 +35,13 @@ from utils.common import (
     signing_key,
 )
 from utils.helpers import Helpers
+
+
+def get_os_codename():
+    release = platform.freedesktop_os_release()
+    codename = release.get("VERSION_CODENAME")
+
+    return codename
 
 
 class SignatureCase:
@@ -226,6 +234,17 @@ class TestUpdates:
 
             assert "ret_code=0" not in output.stdout, output
 
+    @pytest.mark.skipif(
+        # This test is failing / being flaky on Debian 13.
+        # Failure is caused by an incorrect `bootcount` value.
+        # Most likely our qemu wrapper need to be updated for Debian 13
+        # or some extra delay in the calls need to be added so the machine
+        # will fully reboot before entering next test stage.
+        # On other Debian / Ubuntu versions this is working fine.
+        # Reference: MEN-10113
+        get_os_codename == "trixie",
+        reason="This test is flaky on Debian 13",
+    )
     @pytest.mark.min_mender_version("4.0.0")
     def test_network_based_image_update(
         self,
