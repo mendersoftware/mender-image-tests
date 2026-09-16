@@ -234,16 +234,16 @@ class TestUpdates:
 
             assert "ret_code=0" not in output.stdout, output
 
-    # This test is failing / being flaky on Debian 13.
+    # This test is failing / being flaky on Ubuntu 24.04.
     # Failure is caused by an incorrect `bootcount` value.
-    # Most likely our qemu wrapper need to be updated for Debian 13
+    # Most likely our qemu wrapper need to be updated
     # or some extra delay in the calls need to be added so the machine
     # will fully reboot before entering next test stage.
     # On other Debian / Ubuntu versions this is working fine.
     # Reference: MEN-10113
     @pytest.mark.skipif(
-        get_os_codename() == "trixie",
-        reason="This test is flaky on Debian 13",
+        get_os_codename() == "noble",
+        reason="This test is flaky on Ubuntu 24.04",
     )
     @pytest.mark.min_mender_version("4.0.0")
     def test_network_based_image_update(
