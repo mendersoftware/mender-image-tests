@@ -161,6 +161,26 @@ class TestRootfs:
             )
 
     @pytest.mark.cross_platform
+    @pytest.mark.not_with_mender_feature("mender-update-install")
+    @pytest.mark.only_with_image("ext4", "ext3", "ext2")
+    def test_unexpected_mender_ext234(
+        self,
+        bitbake_path,
+        bitbake_variables,
+        latest_rootfs,
+    ):
+        """Test that mender is not present in the image when not expected"""
+
+        with make_tempdir() as tmpdir:
+            # Check whether mender exists in /usr/bin
+            self.verify_file_exists(
+                tmpdir, latest_rootfs, "/usr/bin", "mender-auth", False
+            )
+            self.verify_file_exists(
+                tmpdir, latest_rootfs, "/usr/bin", "mender-update", False
+            )
+
+    @pytest.mark.cross_platform
     @pytest.mark.only_with_image("ext4", "ext3", "ext2")
     @pytest.mark.min_mender_version("2.5.1")
     def test_expected_files_ext234_mender_connect(
