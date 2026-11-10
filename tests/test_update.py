@@ -261,72 +261,80 @@ class TestUpdates:
             bitbake_variables, connection
         )
 
-        Helpers.install_update(
-            successful_image_update_mender,
-            connection,
-            http_server,
-            board_type,
-            use_s3,
-            s3_address,
-        )
+        # Make sure a failure doesn't leave a pending update behind, which
+        # would affect subsequent tests running on the same device.
+        committed = False
+        try:
+            Helpers.install_update(
+                successful_image_update_mender,
+                connection,
+                http_server,
+                board_type,
+                use_s3,
+                s3_address,
+            )
 
-        bootenv_print, _ = bootenv_tools(connection)
+            bootenv_print, _ = bootenv_tools(connection)
 
-        output = connection.run(f"{bootenv_print} bootcount").stdout
-        assert output.rstrip("\n") == "bootcount=0"
+            output = connection.run(f"{bootenv_print} bootcount").stdout
+            assert output.rstrip("\n") == "bootcount=0"
 
-        output = connection.run(f"{bootenv_print} upgrade_available").stdout
-        assert output.rstrip("\n") == "upgrade_available=1"
+            output = connection.run(f"{bootenv_print} upgrade_available").stdout
+            assert output.rstrip("\n") == "upgrade_available=1"
 
-        output = connection.run(f"{bootenv_print} mender_boot_part").stdout
-        assert output.rstrip("\n") == "mender_boot_part=" + passive_before[-1:]
+            output = connection.run(f"{bootenv_print} mender_boot_part").stdout
+            assert output.rstrip("\n") == "mender_boot_part=" + passive_before[-1:]
 
-        # Delete kernel and associated files from currently running partition,
-        # so that the boot will fail if U-Boot for any reason tries to grab the
-        # kernel from the wrong place.
-        connection.run("rm -f /boot/* || true")
+            # Delete kernel and associated files from currently running partition,
+            # so that the boot will fail if U-Boot for any reason tries to grab the
+            # kernel from the wrong place.
+            connection.run("rm -f /boot/* || true")
 
-        reboot(connection)
+            reboot(connection)
 
-        run_after_connect("true", connection)
-        active_after, passive_after = determine_active_passive_part(
-            bitbake_variables, connection
-        )
+            run_after_connect("true", connection)
+            active_after, passive_after = determine_active_passive_part(
+                bitbake_variables, connection
+            )
 
-        # The OS should have moved to a new partition, since the image was fine.
-        assert active_after == passive_before
-        assert passive_after == active_before
+            # The OS should have moved to a new partition, since the image was fine.
+            assert active_after == passive_before
+            assert passive_after == active_before
 
-        output = connection.run(f"{bootenv_print} bootcount").stdout
-        assert output.rstrip("\n") == "bootcount=1"
+            output = connection.run(f"{bootenv_print} bootcount").stdout
+            assert output.rstrip("\n") == "bootcount=1"
 
-        output = connection.run(f"{bootenv_print} upgrade_available").stdout
-        assert output.rstrip("\n") == "upgrade_available=1"
+            output = connection.run(f"{bootenv_print} upgrade_available").stdout
+            assert output.rstrip("\n") == "upgrade_available=1"
 
-        output = connection.run(f"{bootenv_print} mender_boot_part").stdout
-        assert output.rstrip("\n") == "mender_boot_part=" + active_after[-1:]
+            output = connection.run(f"{bootenv_print} mender_boot_part").stdout
+            assert output.rstrip("\n") == "mender_boot_part=" + active_after[-1:]
 
-        connection.run("mender-update commit")
+            connection.run("mender-update commit")
+            committed = True
 
-        output = connection.run(f"{bootenv_print} upgrade_available").stdout
-        assert output.rstrip("\n") == "upgrade_available=0"
+            output = connection.run(f"{bootenv_print} upgrade_available").stdout
+            assert output.rstrip("\n") == "upgrade_available=0"
 
-        output = connection.run(f"{bootenv_print} mender_boot_part").stdout
-        assert output.rstrip("\n") == "mender_boot_part=" + active_after[-1:]
+            output = connection.run(f"{bootenv_print} mender_boot_part").stdout
+            assert output.rstrip("\n") == "mender_boot_part=" + active_after[-1:]
 
-        active_before = active_after
-        passive_before = passive_after
+            active_before = active_after
+            passive_before = passive_after
 
-        reboot(connection)
+            reboot(connection)
 
-        run_after_connect("true", connection)
-        active_after, passive_after = determine_active_passive_part(
-            bitbake_variables, connection
-        )
+            run_after_connect("true", connection)
+            active_after, passive_after = determine_active_passive_part(
+                bitbake_variables, connection
+            )
 
-        # The OS should have stayed on the same partition, since we committed.
-        assert active_after == active_before
-        assert passive_after == passive_before
+            # The OS should have stayed on the same partition, since we committed.
+            assert active_after == active_before
+            assert passive_after == passive_before
+        finally:
+            if not committed:
+                connection.run("mender-update rollback", warn=True)
 
     @pytest.mark.parametrize(
         "sig_case",
