@@ -338,6 +338,77 @@ class TestUpdates:
             if not committed:
                 connection.run("mender-update rollback", warn=True)
 
+    # See the comment for the above test for details.
+    @pytest.mark.skipif(
+        get_os_codename() == "noble",
+        reason="This test fails on Ubuntu 24.04, most likely due to its broken QEMU/OVMF",
+    )
+    @pytest.mark.min_mender_version("4.0.0")
+    def test_rollback_after_uncommitted_reboot(
+        self,
+        successful_image_update_mender,
+        bitbake_variables,
+        connection,
+        http_server,
+        board_type,
+        use_s3,
+        s3_address,
+    ):
+        """Test that the bootloader rolls back a working, but uncommitted update
+        when rebooted a second time. Unlike test_broken_image_update and
+        test_image_update_broken_kernel, the new partition boots fine here, so
+        the rollback depends purely on the bootloader persisting bootcount
+        across a full boot."""
+
+        active_before, passive_before = determine_active_passive_part(
+            bitbake_variables, connection
+        )
+
+        bootenv_print, _ = bootenv_tools(connection)
+
+        try:
+            Helpers.install_update(
+                successful_image_update_mender,
+                connection,
+                http_server,
+                board_type,
+                use_s3,
+                s3_address,
+            )
+
+            reboot(connection)
+
+            run_after_connect("true", connection)
+            active_after, passive_after = determine_active_passive_part(
+                bitbake_variables, connection
+            )
+
+            # The OS should have moved to the new partition, since the image
+            # was fine.
+            assert active_after == passive_before
+            assert passive_after == active_before
+
+            # Reboot again without committing; the bootloader should see that
+            # the new partition was already tried and roll back.
+            reboot(connection)
+
+            run_after_connect("true", connection)
+            active_after, passive_after = determine_active_passive_part(
+                bitbake_variables, connection
+            )
+
+            bootenv = connection.run(bootenv_print, warn=True).stdout
+            assert active_after == active_before, bootenv
+            assert passive_after == passive_before, bootenv
+
+            output = connection.run(f"{bootenv_print} upgrade_available").stdout
+            assert output.rstrip("\n") == "upgrade_available=0"
+
+            output = connection.run(f"{bootenv_print} mender_boot_part").stdout
+            assert output.rstrip("\n") == "mender_boot_part=" + active_before[-1:]
+        finally:
+            connection.run("mender-update rollback", warn=True)
+
     @pytest.mark.parametrize(
         "sig_case",
         [
