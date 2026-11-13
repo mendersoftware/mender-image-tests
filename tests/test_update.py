@@ -234,16 +234,18 @@ class TestUpdates:
 
             assert "ret_code=0" not in output.stdout, output
 
-    # This test is failing / being flaky on Ubuntu 24.04.
-    # Failure is caused by an incorrect `bootcount` value.
-    # Most likely our qemu wrapper need to be updated
-    # or some extra delay in the calls need to be added so the machine
-    # will fully reboot before entering next test stage.
-    # On other Debian / Ubuntu versions this is working fine.
-    # Reference: MEN-10113
+    # This test is failing on Ubuntu 24.04 when testing a Debian 13 converted
+    # image because Debian 13's GRUB fails to write/save its state data
+    # (bootcount, in particular) when running with QEMU and using Ubuntu 24.04's
+    # UEFI (OVMF/edk). Most likely the issue is in the Ubuntu 24.04's OVMF
+    # because on other distributions this test passes fine.
+    # A significant amount of effort has already been spent on trying to debug
+    # and enable this test, but we are not here to fix Ubuntu 24.04's QEMU and
+    # OVMF. We know our stuff works fine because the test passes on other
+    # platforms (ref: MEN-10113)
     @pytest.mark.skipif(
         get_os_codename() == "noble",
-        reason="This test is flaky on Ubuntu 24.04",
+        reason="This test fails on Ubuntu 24.04, most likely due to its broken QEMU/OVMF",
     )
     @pytest.mark.min_mender_version("4.0.0")
     def test_network_based_image_update(
@@ -261,72 +263,151 @@ class TestUpdates:
             bitbake_variables, connection
         )
 
-        Helpers.install_update(
-            successful_image_update_mender,
-            connection,
-            http_server,
-            board_type,
-            use_s3,
-            s3_address,
+        # Make sure a failure doesn't leave a pending update behind, which
+        # would affect subsequent tests running on the same device.
+        committed = False
+        try:
+            Helpers.install_update(
+                successful_image_update_mender,
+                connection,
+                http_server,
+                board_type,
+                use_s3,
+                s3_address,
+            )
+
+            bootenv_print, _ = bootenv_tools(connection)
+
+            output = connection.run(f"{bootenv_print} bootcount").stdout
+            assert output.rstrip("\n") == "bootcount=0"
+
+            output = connection.run(f"{bootenv_print} upgrade_available").stdout
+            assert output.rstrip("\n") == "upgrade_available=1"
+
+            output = connection.run(f"{bootenv_print} mender_boot_part").stdout
+            assert output.rstrip("\n") == "mender_boot_part=" + passive_before[-1:]
+
+            # Delete kernel and associated files from currently running partition,
+            # so that the boot will fail if U-Boot for any reason tries to grab the
+            # kernel from the wrong place.
+            connection.run("rm -f /boot/* || true")
+
+            reboot(connection)
+
+            run_after_connect("true", connection)
+            active_after, passive_after = determine_active_passive_part(
+                bitbake_variables, connection
+            )
+
+            # The OS should have moved to a new partition, since the image was fine.
+            assert active_after == passive_before
+            assert passive_after == active_before
+
+            output = connection.run(f"{bootenv_print} bootcount").stdout
+            assert output.rstrip("\n") == "bootcount=1"
+
+            output = connection.run(f"{bootenv_print} upgrade_available").stdout
+            assert output.rstrip("\n") == "upgrade_available=1"
+
+            output = connection.run(f"{bootenv_print} mender_boot_part").stdout
+            assert output.rstrip("\n") == "mender_boot_part=" + active_after[-1:]
+
+            connection.run("mender-update commit")
+            committed = True
+
+            output = connection.run(f"{bootenv_print} upgrade_available").stdout
+            assert output.rstrip("\n") == "upgrade_available=0"
+
+            output = connection.run(f"{bootenv_print} mender_boot_part").stdout
+            assert output.rstrip("\n") == "mender_boot_part=" + active_after[-1:]
+
+            active_before = active_after
+            passive_before = passive_after
+
+            reboot(connection)
+
+            run_after_connect("true", connection)
+            active_after, passive_after = determine_active_passive_part(
+                bitbake_variables, connection
+            )
+
+            # The OS should have stayed on the same partition, since we committed.
+            assert active_after == active_before
+            assert passive_after == passive_before
+        finally:
+            if not committed:
+                connection.run("mender-update rollback", warn=True)
+
+    # See the comment for the above test for details.
+    @pytest.mark.skipif(
+        get_os_codename() == "noble",
+        reason="This test fails on Ubuntu 24.04, most likely due to its broken QEMU/OVMF",
+    )
+    @pytest.mark.min_mender_version("4.0.0")
+    def test_rollback_after_uncommitted_reboot(
+        self,
+        successful_image_update_mender,
+        bitbake_variables,
+        connection,
+        http_server,
+        board_type,
+        use_s3,
+        s3_address,
+    ):
+        """Test that the bootloader rolls back a working, but uncommitted update
+        when rebooted a second time. Unlike test_broken_image_update and
+        test_image_update_broken_kernel, the new partition boots fine here, so
+        the rollback depends purely on the bootloader persisting bootcount
+        across a full boot."""
+
+        active_before, passive_before = determine_active_passive_part(
+            bitbake_variables, connection
         )
 
         bootenv_print, _ = bootenv_tools(connection)
 
-        output = connection.run(f"{bootenv_print} bootcount").stdout
-        assert output.rstrip("\n") == "bootcount=0"
+        try:
+            Helpers.install_update(
+                successful_image_update_mender,
+                connection,
+                http_server,
+                board_type,
+                use_s3,
+                s3_address,
+            )
 
-        output = connection.run(f"{bootenv_print} upgrade_available").stdout
-        assert output.rstrip("\n") == "upgrade_available=1"
+            reboot(connection)
 
-        output = connection.run(f"{bootenv_print} mender_boot_part").stdout
-        assert output.rstrip("\n") == "mender_boot_part=" + passive_before[-1:]
+            run_after_connect("true", connection)
+            active_after, passive_after = determine_active_passive_part(
+                bitbake_variables, connection
+            )
 
-        # Delete kernel and associated files from currently running partition,
-        # so that the boot will fail if U-Boot for any reason tries to grab the
-        # kernel from the wrong place.
-        connection.run("rm -f /boot/* || true")
+            # The OS should have moved to the new partition, since the image
+            # was fine.
+            assert active_after == passive_before
+            assert passive_after == active_before
 
-        reboot(connection)
+            # Reboot again without committing; the bootloader should see that
+            # the new partition was already tried and roll back.
+            reboot(connection)
 
-        run_after_connect("true", connection)
-        active_after, passive_after = determine_active_passive_part(
-            bitbake_variables, connection
-        )
+            run_after_connect("true", connection)
+            active_after, passive_after = determine_active_passive_part(
+                bitbake_variables, connection
+            )
 
-        # The OS should have moved to a new partition, since the image was fine.
-        assert active_after == passive_before
-        assert passive_after == active_before
+            bootenv = connection.run(bootenv_print, warn=True).stdout
+            assert active_after == active_before, bootenv
+            assert passive_after == passive_before, bootenv
 
-        output = connection.run(f"{bootenv_print} bootcount").stdout
-        assert output.rstrip("\n") == "bootcount=1"
+            output = connection.run(f"{bootenv_print} upgrade_available").stdout
+            assert output.rstrip("\n") == "upgrade_available=0"
 
-        output = connection.run(f"{bootenv_print} upgrade_available").stdout
-        assert output.rstrip("\n") == "upgrade_available=1"
-
-        output = connection.run(f"{bootenv_print} mender_boot_part").stdout
-        assert output.rstrip("\n") == "mender_boot_part=" + active_after[-1:]
-
-        connection.run("mender-update commit")
-
-        output = connection.run(f"{bootenv_print} upgrade_available").stdout
-        assert output.rstrip("\n") == "upgrade_available=0"
-
-        output = connection.run(f"{bootenv_print} mender_boot_part").stdout
-        assert output.rstrip("\n") == "mender_boot_part=" + active_after[-1:]
-
-        active_before = active_after
-        passive_before = passive_after
-
-        reboot(connection)
-
-        run_after_connect("true", connection)
-        active_after, passive_after = determine_active_passive_part(
-            bitbake_variables, connection
-        )
-
-        # The OS should have stayed on the same partition, since we committed.
-        assert active_after == active_before
-        assert passive_after == passive_before
+            output = connection.run(f"{bootenv_print} mender_boot_part").stdout
+            assert output.rstrip("\n") == "mender_boot_part=" + active_before[-1:]
+        finally:
+            connection.run("mender-update rollback", warn=True)
 
     @pytest.mark.parametrize(
         "sig_case",
