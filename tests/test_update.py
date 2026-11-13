@@ -234,16 +234,18 @@ class TestUpdates:
 
             assert "ret_code=0" not in output.stdout, output
 
-    # This test is failing / being flaky on Ubuntu 24.04.
-    # Failure is caused by an incorrect `bootcount` value.
-    # Most likely our qemu wrapper need to be updated
-    # or some extra delay in the calls need to be added so the machine
-    # will fully reboot before entering next test stage.
-    # On other Debian / Ubuntu versions this is working fine.
-    # Reference: MEN-10113
+    # This test is failing on Ubuntu 24.04 when testing a Debian 13 converted
+    # image because Debian 13's GRUB fails to write/save its state data
+    # (bootcount, in particular) when running with QEMU and using Ubuntu 24.04's
+    # UEFI (OVMF/edk). Most likely the issue is in the Ubuntu 24.04's OVMF
+    # because on other distributions this test passes fine.
+    # A significant amount of effort has already been spent on trying to debug
+    # and enable this test, but we are not here to fix Ubuntu 24.04's QEMU and
+    # OVMF. We know our stuff works fine because the test passes on other
+    # platforms (ref: MEN-10113)
     @pytest.mark.skipif(
         get_os_codename() == "noble",
-        reason="This test is flaky on Ubuntu 24.04",
+        reason="This test fails on Ubuntu 24.04, most likely due to its broken QEMU/OVMF",
     )
     @pytest.mark.min_mender_version("4.0.0")
     def test_network_based_image_update(
